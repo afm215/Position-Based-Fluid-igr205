@@ -1,0 +1,82 @@
+[
+{
+  "directory": "C:/Users/galau/OneDrive/Documents/Clément/Ecole/2A/IGR/IGR202/TP03-FluidSPH/out/build/x64-Debug (par défaut)",
+  "command": "C:\\PROGRA~2\\MICROS~2\\2019\\COMMUN~1\\VC\\Tools\\MSVC\\1428~1.293\\bin\\Hostx64\\x64\\cl.exe   /TP -I..\\..\\..\\dep\\glfw\\include /DWIN32 /D_WINDOWS /W3 /GR /EHsc /MDd /Zi /Ob0 /Od /RTC1 /FoCMakeFiles\\tpSph.dir\\src\\main.cpp.obj /FdTARGET_COMPILE_PDB /FS -c C:\\Users\\galau\\OneDrive\\Documents\\Clément\\Ecole\\2A\\IGR\\IGR202\\TP03-FluidSPH\\src\\main.cpp",
+  "file": "C:/Users/galau/OneDrive/Documents/Clément/Ecole/2A/IGR/IGR202/TP03-FluidSPH/src/main.cpp"
+},
+{
+  "directory": "C:/Users/galau/OneDrive/Documents/Clément/Ecole/2A/IGR/IGR202/TP03-FluidSPH/out/build/x64-Debug (par défaut)",
+  "command": "C:\\PROGRA~2\\MICROS~2\\2019\\COMMUN~1\\VC\\Tools\\MSVC\\1428~1.293\\bin\\Hostx64\\x64\\cl.exe   -D_CRT_SECURE_NO_WARNINGS -D_GLFW_USE_CONFIG_H -D_UNICODE -I..\\..\\..\\dep\\glfw\\include -I..\\..\\..\\dep\\glfw\\src -Idep\\glfw\\src /DWIN32 /D_WINDOWS /W3 /MDd /Zi /Ob0 /Od /RTC1 /Fodep\\glfw\\src\\CMakeFiles\\glfw.dir\\context.c.obj /FdTARGET_COMPILE_PDB /FS -c C:\\Users\\galau\\OneDrive\\Documents\\Clément\\Ecole\\2A\\IGR\\IGR202\\TP03-FluidSPH\\dep\\glfw\\src\\context.c",
+  "file": "C:/Users/galau/OneDrive/Documents/Clément/Ecole/2A/IGR/IGR202/TP03-FluidSPH/dep/glfw/src/context.c"
+},
+{
+  "directory": "C:/Users/galau/OneDrive/Documents/Clément/Ecole/2A/IGR/IGR202/TP03-FluidSPH/out/build/x64-Debug (par défaut)",
+  "command": "C:\\PROGRA~2\\MICROS~2\\2019\\COMMUN~1\\VC\\Tools\\MSVC\\1428~1.293\\bin\\Hostx64\\x64\\cl.exe   -D_CRT_SECURE_NO_WARNINGS -D_GLFW_USE_CONFIG_H -D_UNICODE -I..\\..\\..\\dep\\glfw\\include -I..\\..\\..\\dep\\glfw\\src -Idep\\glfw\\src /DWIN32 /D_WINDOWS /W3 /MDd /Zi /Ob0 /Od /RTC1 /Fodep\\glfw\\src\\CMakeFiles\\glfw.dir\\init.c.obj /FdTARGET_COMPILE_PDB /FS -c C:\\Users\\galau\\OneDrive\\Documents\\Clément\\Ecole\\2A\\IGR\\IGR202\\TP03-FluidSPH\\dep\\glfw\\src\\init.c",
+  "file": "C:/Users/galau/OneDrive/Documents/Clément/Ecole/2A/IGR/IGR202/TP03-FluidSPH/dep/glfw/src/init.c"
+},
+{
+  "directory": "C:/Users/galau/OneDrive/Documents/Clément/Ecole/2A/IGR/IGR202/TP03-FluidSPH/out/build/x64-Debug (par défaut)",
+  "command": "C:\\PROGRA~2\\MICROS~2\\2019\\COMMUN~1\\VC\\Tools\\MSVC\\1428~1.293\\bin\\Hostx64\\x64\\cl.exe   -D_CRT_SECURE_NO_WARNINGS -D_GLFW_USE_CONFIG_H -D_UNICODE -I..\\..\\..\\dep\\glfw\\include -I..\\..\\..\\dep\\glfw\\src -Idep\\glfw\\src /DWIN32 /D_WINDOWS /W3 /MDd /Zi /Ob0 /Od /RTC1 /Fodep\\glfw\\src\\CMakeFiles\\glfw.dir\\input.c.obj /FdTARGET_COMPILE_PDB /FS -c C:\\Users\\galau\\OneDrive\\Documents\\Clément\\Ecole\\2A\\IGR\\IGR202\\TP03-FluidSPH\\dep\\glfw\\src\\input.c",
+  "file": "C:/Users/galau/OneDrive/Documents/Clément/Ecole/2A/IGR/IGR202/TP03-FluidSPH/dep/glfw/src/input.c"
+},
+{
+  "directory": "C:/Users/galau/OneDrive/Documents/Clément/Ecole/2A/IGR/IGR202/TP03-FluidSPH/out/build/x64-Debug (par défaut)",
+  "command": "C:\\PROGRA~2\\MICROS~2\\2019\\COMMUN~1\\VC\\Tools\\MSVC\\1428~1.293\\bin\\Hostx64\\x64\\cl.exe   -D_CRT_SECURE_NO_WARNINGS -D_GLFW_USE_CONFIG_H -D_UNICODE -I..\\..\\..\\dep\\glfw\\include -I..\\..\\..\\dep\\glfw\\src -Idep\\glfw\\src /DWIN32 /D_WINDOWS /W3 /MDd /Zi /Ob0 /Od /RTC1 /Fodep\\glfw\\src\\CMakeFiles\\glfw.dir\\monitor.c.obj /FdTARGET_COMPILE_PDB /FS -c C:\\Users\\galau\\OneDrive\\Documents\\Clément\\Ecole\\2A\\IGR\\IGR202\\TP03-FluidSPH\\dep\\glfw\\src\\monitor.c",
+  "file": "C:/Users/galau/OneDrive/Documents/Clément/Ecole/2A/IGR/IGR202/TP03-FluidSPH/dep/glfw/src/monitor.c"
+},
+{
+  "directory": "C:/Users/galau/OneDrive/Documents/Clément/Ecole/2A/IGR/IGR202/TP03-FluidSPH/out/build/x64-Debug (par défaut)",
+  "command": "C:\\PROGRA~2\\MICROS~2\\2019\\COMMUN~1\\VC\\Tools\\MSVC\\1428~1.293\\bin\\Hostx64\\x64\\cl.exe   -D_CRT_SECURE_NO_WARNINGS -D_GLFW_USE_CONFIG_H -D_UNICODE -I..\\..\\..\\dep\\glfw\\include -I..\\..\\..\\dep\\glfw\\src -Idep\\glfw\\src /DWIN32 /D_WINDOWS /W3 /MDd /Zi /Ob0 /Od /RTC1 /Fodep\\glfw\\src\\CMakeFiles\\glfw.dir\\vulkan.c.obj /FdTARGET_COMPILE_PDB /FS -c C:\\Users\\galau\\OneDrive\\Documents\\Clément\\Ecole\\2A\\IGR\\IGR202\\TP03-FluidSPH\\dep\\glfw\\src\\vulkan.c",
+  "file": "C:/Users/galau/OneDrive/Documents/Clément/Ecole/2A/IGR/IGR202/TP03-FluidSPH/dep/glfw/src/vulkan.c"
+},
+{
+  "directory": "C:/Users/galau/OneDrive/Documents/Clément/Ecole/2A/IGR/IGR202/TP03-FluidSPH/out/build/x64-Debug (par défaut)",
+  "command": "C:\\PROGRA~2\\MICROS~2\\2019\\COMMUN~1\\VC\\Tools\\MSVC\\1428~1.293\\bin\\Hostx64\\x64\\cl.exe   -D_CRT_SECURE_NO_WARNINGS -D_GLFW_USE_CONFIG_H -D_UNICODE -I..\\..\\..\\dep\\glfw\\include -I..\\..\\..\\dep\\glfw\\src -Idep\\glfw\\src /DWIN32 /D_WINDOWS /W3 /MDd /Zi /Ob0 /Od /RTC1 /Fodep\\glfw\\src\\CMakeFiles\\glfw.dir\\window.c.obj /FdTARGET_COMPILE_PDB /FS -c C:\\Users\\galau\\OneDrive\\Documents\\Clément\\Ecole\\2A\\IGR\\IGR202\\TP03-FluidSPH\\dep\\glfw\\src\\window.c",
+  "file": "C:/Users/galau/OneDrive/Documents/Clément/Ecole/2A/IGR/IGR202/TP03-FluidSPH/dep/glfw/src/window.c"
+},
+{
+  "directory": "C:/Users/galau/OneDrive/Documents/Clément/Ecole/2A/IGR/IGR202/TP03-FluidSPH/out/build/x64-Debug (par défaut)",
+  "command": "C:\\PROGRA~2\\MICROS~2\\2019\\COMMUN~1\\VC\\Tools\\MSVC\\1428~1.293\\bin\\Hostx64\\x64\\cl.exe   -D_CRT_SECURE_NO_WARNINGS -D_GLFW_USE_CONFIG_H -D_UNICODE -I..\\..\\..\\dep\\glfw\\include -I..\\..\\..\\dep\\glfw\\src -Idep\\glfw\\src /DWIN32 /D_WINDOWS /W3 /MDd /Zi /Ob0 /Od /RTC1 /Fodep\\glfw\\src\\CMakeFiles\\glfw.dir\\win32_init.c.obj /FdTARGET_COMPILE_PDB /FS -c C:\\Users\\galau\\OneDrive\\Documents\\Clément\\Ecole\\2A\\IGR\\IGR202\\TP03-FluidSPH\\dep\\glfw\\src\\win32_init.c",
+  "file": "C:/Users/galau/OneDrive/Documents/Clément/Ecole/2A/IGR/IGR202/TP03-FluidSPH/dep/glfw/src/win32_init.c"
+},
+{
+  "directory": "C:/Users/galau/OneDrive/Documents/Clément/Ecole/2A/IGR/IGR202/TP03-FluidSPH/out/build/x64-Debug (par défaut)",
+  "command": "C:\\PROGRA~2\\MICROS~2\\2019\\COMMUN~1\\VC\\Tools\\MSVC\\1428~1.293\\bin\\Hostx64\\x64\\cl.exe   -D_CRT_SECURE_NO_WARNINGS -D_GLFW_USE_CONFIG_H -D_UNICODE -I..\\..\\..\\dep\\glfw\\include -I..\\..\\..\\dep\\glfw\\src -Idep\\glfw\\src /DWIN32 /D_WINDOWS /W3 /MDd /Zi /Ob0 /Od /RTC1 /Fodep\\glfw\\src\\CMakeFiles\\glfw.dir\\win32_joystick.c.obj /FdTARGET_COMPILE_PDB /FS -c C:\\Users\\galau\\OneDrive\\Documents\\Clément\\Ecole\\2A\\IGR\\IGR202\\TP03-FluidSPH\\dep\\glfw\\src\\win32_joystick.c",
+  "file": "C:/Users/galau/OneDrive/Documents/Clément/Ecole/2A/IGR/IGR202/TP03-FluidSPH/dep/glfw/src/win32_joystick.c"
+},
+{
+  "directory": "C:/Users/galau/OneDrive/Documents/Clément/Ecole/2A/IGR/IGR202/TP03-FluidSPH/out/build/x64-Debug (par défaut)",
+  "command": "C:\\PROGRA~2\\MICROS~2\\2019\\COMMUN~1\\VC\\Tools\\MSVC\\1428~1.293\\bin\\Hostx64\\x64\\cl.exe   -D_CRT_SECURE_NO_WARNINGS -D_GLFW_USE_CONFIG_H -D_UNICODE -I..\\..\\..\\dep\\glfw\\include -I..\\..\\..\\dep\\glfw\\src -Idep\\glfw\\src /DWIN32 /D_WINDOWS /W3 /MDd /Zi /Ob0 /Od /RTC1 /Fodep\\glfw\\src\\CMakeFiles\\glfw.dir\\win32_monitor.c.obj /FdTARGET_COMPILE_PDB /FS -c C:\\Users\\galau\\OneDrive\\Documents\\Clément\\Ecole\\2A\\IGR\\IGR202\\TP03-FluidSPH\\dep\\glfw\\src\\win32_monitor.c",
+  "file": "C:/Users/galau/OneDrive/Documents/Clément/Ecole/2A/IGR/IGR202/TP03-FluidSPH/dep/glfw/src/win32_monitor.c"
+},
+{
+  "directory": "C:/Users/galau/OneDrive/Documents/Clément/Ecole/2A/IGR/IGR202/TP03-FluidSPH/out/build/x64-Debug (par défaut)",
+  "command": "C:\\PROGRA~2\\MICROS~2\\2019\\COMMUN~1\\VC\\Tools\\MSVC\\1428~1.293\\bin\\Hostx64\\x64\\cl.exe   -D_CRT_SECURE_NO_WARNINGS -D_GLFW_USE_CONFIG_H -D_UNICODE -I..\\..\\..\\dep\\glfw\\include -I..\\..\\..\\dep\\glfw\\src -Idep\\glfw\\src /DWIN32 /D_WINDOWS /W3 /MDd /Zi /Ob0 /Od /RTC1 /Fodep\\glfw\\src\\CMakeFiles\\glfw.dir\\win32_time.c.obj /FdTARGET_COMPILE_PDB /FS -c C:\\Users\\galau\\OneDrive\\Documents\\Clément\\Ecole\\2A\\IGR\\IGR202\\TP03-FluidSPH\\dep\\glfw\\src\\win32_time.c",
+  "file": "C:/Users/galau/OneDrive/Documents/Clément/Ecole/2A/IGR/IGR202/TP03-FluidSPH/dep/glfw/src/win32_time.c"
+},
+{
+  "directory": "C:/Users/galau/OneDrive/Documents/Clément/Ecole/2A/IGR/IGR202/TP03-FluidSPH/out/build/x64-Debug (par défaut)",
+  "command": "C:\\PROGRA~2\\MICROS~2\\2019\\COMMUN~1\\VC\\Tools\\MSVC\\1428~1.293\\bin\\Hostx64\\x64\\cl.exe   -D_CRT_SECURE_NO_WARNINGS -D_GLFW_USE_CONFIG_H -D_UNICODE -I..\\..\\..\\dep\\glfw\\include -I..\\..\\..\\dep\\glfw\\src -Idep\\glfw\\src /DWIN32 /D_WINDOWS /W3 /MDd /Zi /Ob0 /Od /RTC1 /Fodep\\glfw\\src\\CMakeFiles\\glfw.dir\\win32_thread.c.obj /FdTARGET_COMPILE_PDB /FS -c C:\\Users\\galau\\OneDrive\\Documents\\Clément\\Ecole\\2A\\IGR\\IGR202\\TP03-FluidSPH\\dep\\glfw\\src\\win32_thread.c",
+  "file": "C:/Users/galau/OneDrive/Documents/Clément/Ecole/2A/IGR/IGR202/TP03-FluidSPH/dep/glfw/src/win32_thread.c"
+},
+{
+  "directory": "C:/Users/galau/OneDrive/Documents/Clément/Ecole/2A/IGR/IGR202/TP03-FluidSPH/out/build/x64-Debug (par défaut)",
+  "command": "C:\\PROGRA~2\\MICROS~2\\2019\\COMMUN~1\\VC\\Tools\\MSVC\\1428~1.293\\bin\\Hostx64\\x64\\cl.exe   -D_CRT_SECURE_NO_WARNINGS -D_GLFW_USE_CONFIG_H -D_UNICODE -I..\\..\\..\\dep\\glfw\\include -I..\\..\\..\\dep\\glfw\\src -Idep\\glfw\\src /DWIN32 /D_WINDOWS /W3 /MDd /Zi /Ob0 /Od /RTC1 /Fodep\\glfw\\src\\CMakeFiles\\glfw.dir\\win32_window.c.obj /FdTARGET_COMPILE_PDB /FS -c C:\\Users\\galau\\OneDrive\\Documents\\Clément\\Ecole\\2A\\IGR\\IGR202\\TP03-FluidSPH\\dep\\glfw\\src\\win32_window.c",
+  "file": "C:/Users/galau/OneDrive/Documents/Clément/Ecole/2A/IGR/IGR202/TP03-FluidSPH/dep/glfw/src/win32_window.c"
+},
+{
+  "directory": "C:/Users/galau/OneDrive/Documents/Clément/Ecole/2A/IGR/IGR202/TP03-FluidSPH/out/build/x64-Debug (par défaut)",
+  "command": "C:\\PROGRA~2\\MICROS~2\\2019\\COMMUN~1\\VC\\Tools\\MSVC\\1428~1.293\\bin\\Hostx64\\x64\\cl.exe   -D_CRT_SECURE_NO_WARNINGS -D_GLFW_USE_CONFIG_H -D_UNICODE -I..\\..\\..\\dep\\glfw\\include -I..\\..\\..\\dep\\glfw\\src -Idep\\glfw\\src /DWIN32 /D_WINDOWS /W3 /MDd /Zi /Ob0 /Od /RTC1 /Fodep\\glfw\\src\\CMakeFiles\\glfw.dir\\wgl_context.c.obj /FdTARGET_COMPILE_PDB /FS -c C:\\Users\\galau\\OneDrive\\Documents\\Clément\\Ecole\\2A\\IGR\\IGR202\\TP03-FluidSPH\\dep\\glfw\\src\\wgl_context.c",
+  "file": "C:/Users/galau/OneDrive/Documents/Clément/Ecole/2A/IGR/IGR202/TP03-FluidSPH/dep/glfw/src/wgl_context.c"
+},
+{
+  "directory": "C:/Users/galau/OneDrive/Documents/Clément/Ecole/2A/IGR/IGR202/TP03-FluidSPH/out/build/x64-Debug (par défaut)",
+  "command": "C:\\PROGRA~2\\MICROS~2\\2019\\COMMUN~1\\VC\\Tools\\MSVC\\1428~1.293\\bin\\Hostx64\\x64\\cl.exe   -D_CRT_SECURE_NO_WARNINGS -D_GLFW_USE_CONFIG_H -D_UNICODE -I..\\..\\..\\dep\\glfw\\include -I..\\..\\..\\dep\\glfw\\src -Idep\\glfw\\src /DWIN32 /D_WINDOWS /W3 /MDd /Zi /Ob0 /Od /RTC1 /Fodep\\glfw\\src\\CMakeFiles\\glfw.dir\\egl_context.c.obj /FdTARGET_COMPILE_PDB /FS -c C:\\Users\\galau\\OneDrive\\Documents\\Clément\\Ecole\\2A\\IGR\\IGR202\\TP03-FluidSPH\\dep\\glfw\\src\\egl_context.c",
+  "file": "C:/Users/galau/OneDrive/Documents/Clément/Ecole/2A/IGR/IGR202/TP03-FluidSPH/dep/glfw/src/egl_context.c"
+},
+{
+  "directory": "C:/Users/galau/OneDrive/Documents/Clément/Ecole/2A/IGR/IGR202/TP03-FluidSPH/out/build/x64-Debug (par défaut)",
+  "command": "C:\\PROGRA~2\\MICROS~2\\2019\\COMMUN~1\\VC\\Tools\\MSVC\\1428~1.293\\bin\\Hostx64\\x64\\cl.exe   -D_CRT_SECURE_NO_WARNINGS -D_GLFW_USE_CONFIG_H -D_UNICODE -I..\\..\\..\\dep\\glfw\\include -I..\\..\\..\\dep\\glfw\\src -Idep\\glfw\\src /DWIN32 /D_WINDOWS /W3 /MDd /Zi /Ob0 /Od /RTC1 /Fodep\\glfw\\src\\CMakeFiles\\glfw.dir\\osmesa_context.c.obj /FdTARGET_COMPILE_PDB /FS -c C:\\Users\\galau\\OneDrive\\Documents\\Clément\\Ecole\\2A\\IGR\\IGR202\\TP03-FluidSPH\\dep\\glfw\\src\\osmesa_context.c",
+  "file": "C:/Users/galau/OneDrive/Documents/Clément/Ecole/2A/IGR/IGR202/TP03-FluidSPH/dep/glfw/src/osmesa_context.c"
+}
+]
