@@ -186,8 +186,8 @@ public:
         int i = 0;
         while (i < NB_IT)
         {
-
-            computeLamba();
+            computeLambda();
+            computeDp();
             computeDensity();
             resolveCollision();
             updatePrediction();
@@ -308,7 +308,7 @@ private:
     {
 #pragma omp parallel for
         for (tIndex i = 0; i < particleCount(); ++i) {
-            //_l[i] = ;
+            //_lambda[i] = ;
         }
     }
 
@@ -501,7 +501,7 @@ private:
     std::vector<Vec2f> _vel;      // velocity
     std::vector<Vec2f> _acc;      // acceleration
     std::vector<Real>  _p;        // pressure
-    std::vector<Real>  _l;        // density constraint
+    std::vector<Real>  _lambda;        // density constraint
     std::vector<Real>  _d;        // density
 
     std::vector< std::vector<tIndex> > _pidxInGrid; // particle neighbor data
