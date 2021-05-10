@@ -303,20 +303,129 @@ private:
             _p[i] = std::max(equationOfState(_d[i], _d0, _p0, _gamma), Real(0.0));
         }
     }
+    void computeDeltaPkCi(tIndex i, tIndex k) {
+        if (i==k) {
+            
+        }
+        else {
+
+        }
+    }
+
+    Vec2f computeGradCi(int i, int k) {
+
+
+        const Vec2f& xi = position(i);
+        const Real sr = _kernel.supportRadius();
+        Vec2f result = Vec2f(0, 0);
+
+        if (k == i) {
+
+            for (size_t ni = 0; ni < _pidxInGrid[i].size(); ++ni) {
+
+                const tIndex j = _pidxInGrid[i][ni];
+                const Vec2f& xj = position(j);
+                const Vec2f xij = xi - xj;
+                const Real len_xij = xij.length();
+                if (len_xij > sr) continue;
+
+                result += 1 / _d0 * _kernel.grad_w(xij);
+
+            }
+
+            return result;
+        }
+    
+        else{
+            const Vec2f& xk = position(k);
+            const Vec2f xik = xi - xk;
+            result -= 1 / _d0 * _kernel.grad_w(xik);
+            return result;
+        }
+    }
+
+    Vec2f compute_w_i(int i){
+        const Vec2f& xi = position(i);
+        const Real sr = _kernel.supportRadius();
+        Vec2f result = Vec2f(0, 0);
+
+        
+
+        for (size_t ni = 0; ni < _pidxInGrid[i].size(); ++ni) {
+
+            const tIndex j = _pidxInGrid[i][ni];
+            const Vec2f& xj = position(j);
+            const Vec2f xij = xi - xj;
+            const Real len_xij = xij.length();
+            if (len_xij > sr) continue;
+            Vec2f vij = _vel[j] - _vel[i];
+            result -=  vij * _kernel.grad_w(xij); // WARNING wait to be sure (grad-pj = - grad ??)
+
+        }
+
+        return result;
+        
+    }
+
 
     void computeLambda()
     {
 #pragma omp parallel for
         for (tIndex i = 0; i < particleCount(); ++i) {
-            //_lambda[i] = ;
+
+
+            Real c_i = _d[i] / _d0 - 1;
+            _lambda.push_back(c_i);
+
+
+            unsigned int size = _pos.size();
+            Real sumnormgradCi = 0;
+            for(int j =0; j < size; j ++){
+                Vec2f gradCi = computeGradCi(i, j);
+                sumnormgradCi +=  (square(gradCi.x) + square(gradCi.y));
+                
+            }
+
+
+            _lambda[i] /= (sumnormgradCi + DBL_EPSILON);
+         
         }
     }
 
     void computeDp()
     {
+        const Real sr = _kernel.supportRadius();
+
 #pragma omp parallel for
         for (tIndex i = 0; i < particleCount(); ++i) {
-            //_dp[i] = ;
+            if (_type[i] != 1) continue;
+            Vec2f sum_grad_p(0, 0);
+            const Vec2f& xi = position(i);
+
+            const int gi_from = static_cast<int>(xi.x - sr);
+            const int gi_to = static_cast<int>(xi.x + sr) + 1;
+            const int gj_from = static_cast<int>(xi.y - sr);
+            const int gj_to = static_cast<int>(xi.y + sr) + 1;
+
+            for (int gj = std::max(0, gj_from); gj < std::min(resY(), gj_to); ++gj) {
+                for (int gi = std::max(0, gi_from); gi < std::min(resX(), gi_to); ++gi) {
+                    const tIndex gidx = idx1d(gi, gj);
+
+                    // each particle in nearby cells
+                    for (size_t ni = 0; ni < _pidxInGrid[gidx].size(); ++ni) {
+                        const tIndex j = _pidxInGrid[gidx][ni];
+                        if (i == j) continue;
+                        const Vec2f& xj = position(j);
+                        const Vec2f xij = xi - xj;
+                        const Real len_xij = xij.length();
+                        if (len_xij > sr) continue;
+
+                        sum_grad_p += (_lambda[i]+ _lambda[j])*_kernel.grad_w(xij, len_xij);
+                    }
+                }
+            }
+
+            _dp[i] / _d0;
         }
     }
 
