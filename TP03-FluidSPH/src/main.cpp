@@ -29,6 +29,8 @@
 #define M_PI 3.141592
 #endif
 
+#define NB_IT 25
+
 #include "Vector.hpp"
 
 // window parameters
@@ -176,25 +178,63 @@ public:
     {
         std::cout << '.' << std::flush;
 
-        buildNeighbor();
-        computeDensity();
-        computePressure();
+        // PBF :
 
-        _acc = std::vector<Vec2f>(_pos.size(), Vec2f(0, 0));
         applyBodyForce();
-        applyViscousForce();
-
+        predictPosition();
+        buildNeighbor();
+        int i = 0;
+        while (i < NB_IT)
+        {
+            computeLambda();
+            computeDp();
+            computeDensity();
+            resolveCollision();
+            updatePrediction();
+            i++;
+        }
         updateVelocity();
+        applyViscousForce();
         updatePosition();
-
-        // resolveCollision();
 
         updateColor();
         if (gShowVel) updateVelLine();
+
+
+        /*
+        * // PSEUDO CODE :
+        * 
+        for all particles i do
+            apply forces vi <= vi + Dtfext(xi)
+            predict position x*i <= xi + Dtvi
+        end for
+        for all particles i do
+            find neighboring particles Ni(x*i)
+        end for
+        while iter < solverIterations do
+            for all particles i do
+                calculate li
+            end for
+            for all particles i do
+                calculate Dpi
+                perform collision detection and response
+            end for
+            for all particles i do
+                update position x*i <= x*i + Dpi
+            end for
+        end while
+        for all particles i do
+            update velocity vi <= 1/Dt(x*i - xi)
+            apply vorticity confinement and XSPH viscosity
+            update position xi <= x*i
+        end for
+        */
+
+
     }
 
     tIndex particleCount() const { return _pos.size(); }
-    const Vec2f& position(const tIndex i) const { return _pos[i]; }
+    const Vec2f& position(const tIndex i) const { return _pred_pos[i]; }
     const float& color(const tIndex i) const { return _col[i]; }
     const float& vline(const tIndex i) const { return _vln[i]; }
 
@@ -253,6 +293,9 @@ private:
             _d[i] = sum_m;
         }
     }
+
+
+
     void computePressure()
     {
 #pragma omp parallel for
@@ -260,12 +303,139 @@ private:
             _p[i] = std::max(equationOfState(_d[i], _d0, _p0, _gamma), Real(0.0));
         }
     }
+    void computeDeltaPkCi(tIndex i, tIndex k) {
+        if (i==k) {
+            
+        }
+        else {
+
+        }
+    }
+
+    Vec2f computeGradCi(int i, int k) {
+
+
+        const Vec2f& xi = position(i);
+        const Real sr = _kernel.supportRadius();
+        Vec2f result = Vec2f(0, 0);
+
+        if (k == i) {
+
+            for (size_t ni = 0; ni < _pidxInGrid[i].size(); ++ni) {
+
+                const tIndex j = _pidxInGrid[i][ni];
+                const Vec2f& xj = position(j);
+                const Vec2f xij = xi - xj;
+                const Real len_xij = xij.length();
+                if (len_xij > sr) continue;
+
+                result += 1 / _d0 * _kernel.grad_w(xij);
+
+            }
+
+            return result;
+        }
+    
+        else{
+            const Vec2f& xk = position(k);
+            const Vec2f xik = xi - xk;
+            result -= 1 / _d0 * _kernel.grad_w(xik);
+            return result;
+        }
+    }
+
+    Vec2f compute_w_i(int i){
+        const Vec2f& xi = position(i);
+        const Real sr = _kernel.supportRadius();
+        Vec2f result = Vec2f(0, 0);
+
+        
+
+        for (size_t ni = 0; ni < _pidxInGrid[i].size(); ++ni) {
+
+            const tIndex j = _pidxInGrid[i][ni];
+            const Vec2f& xj = position(j);
+            const Vec2f xij = xi - xj;
+            const Real len_xij = xij.length();
+            if (len_xij > sr) continue;
+            Vec2f vij = _vel[j] - _vel[i];
+            result -=  vij * _kernel.grad_w(xij); // WARNING wait to be sure (grad-pj = - grad ??)
+
+        }
+
+        return result;
+        
+    }
+
+
+    void computeLambda()
+    {
+#pragma omp parallel for
+        for (tIndex i = 0; i < particleCount(); ++i) {
+
+
+            Real c_i = _d[i] / _d0 - 1;
+            _lambda.push_back(c_i);
+
+
+            unsigned int size = _pos.size();
+            Real sumnormgradCi = 0;
+            for(int j =0; j < size; j ++){
+                Vec2f gradCi = computeGradCi(i, j);
+                sumnormgradCi +=  (square(gradCi.x) + square(gradCi.y));
+                
+            }
+
+
+            _lambda[i] /= (sumnormgradCi + DBL_EPSILON);
+         
+        }
+    }
+
+    void computeDp()
+    {
+        const Real sr = _kernel.supportRadius();
+
+#pragma omp parallel for
+        for (tIndex i = 0; i < particleCount(); ++i) {
+            if (_type[i] != 1) continue;
+            Vec2f sum_grad_p(0, 0);
+            const Vec2f& xi = position(i);
+
+            const int gi_from = static_cast<int>(xi.x - sr);
+            const int gi_to = static_cast<int>(xi.x + sr) + 1;
+            const int gj_from = static_cast<int>(xi.y - sr);
+            const int gj_to = static_cast<int>(xi.y + sr) + 1;
+
+            for (int gj = std::max(0, gj_from); gj < std::min(resY(), gj_to); ++gj) {
+                for (int gi = std::max(0, gi_from); gi < std::min(resX(), gi_to); ++gi) {
+                    const tIndex gidx = idx1d(gi, gj);
+
+                    // each particle in nearby cells
+                    for (size_t ni = 0; ni < _pidxInGrid[gidx].size(); ++ni) {
+                        const tIndex j = _pidxInGrid[gidx][ni];
+                        if (i == j) continue;
+                        const Vec2f& xj = position(j);
+                        const Vec2f xij = xi - xj;
+                        const Real len_xij = xij.length();
+                        if (len_xij > sr) continue;
+
+                        sum_grad_p += (_lambda[i]+ _lambda[j])*_kernel.grad_w(xij, len_xij);
+                    }
+                }
+            }
+
+            _dp[i] / _d0;
+        }
+    }
+
     void applyBodyForce()
     {
 #pragma omp parallel for
         for (tIndex i = 0; i < particleCount(); ++i) {
             if (_type[i] != 1) continue;
             _acc[i] += _g;
+            _vel[i] += _dt * _acc[i];   // simple forward Euler
         }
     }
     
@@ -314,7 +484,7 @@ private:
 #pragma omp parallel for
         for (tIndex i = 0; i < particleCount(); ++i) {
             if (_type[i] != 1) continue;
-            _vel[i] += _dt * _acc[i];   // simple forward Euler
+            _vel[i] += (_pred_pos[i] - _pos[i]) / _dt;
         }
     }
     void updatePosition()
@@ -326,38 +496,25 @@ private:
 #pragma omp parallel for
         for (tIndex i = 0; i < particleCount(); ++i) {
             if (_type[i] != 1) continue;
-            old_pos.push_back(_pos[i]);
-            _pos[i] =  _pos[i] + _dt * _vel[i]; 
-            _vel[i] = _vel[i] + _dt * _g;// simple forward Euler
+            _pos[i] = _pred_pos[i];
         }
+    }
 
-        buildNeighbor();
-
-        int iter = 0;
-        double c_i;
-        std::vector<double> lambda_i;
-
-           while (iter < solverIteration) {
-               for (tIndex i = 0; i < particleCount(); ++i) {
-                   if (_type[i] != 1) continue;
-                   //calculate C_i
-                   // Calculate gradiant 
-                   //Calculate lambda i
-                }
-               
-               for (tIndex i = 0; i < particleCount(); ++i) {
-                   if (_type[i] != 1) continue;
-                   //Delta p_i
-
-                   //call collision !
-                }
-
-                
+    void predictPosition()
+    {
+#pragma omp parallel for
+        for (tIndex i = 0; i < particleCount(); ++i) {
+            if (_type[i] != 1) continue;
+            _pred_pos[i] += _dt * _vel[i];   // simple forward Euler
         }
-        for (size_t ni = 0; ni < _pidxInGrid[gidx].size(); ++ni) {
-            const Vec2f& xj = position(_pidxInGrid[gidx][ni]);
-            const Real len_xij = (xi - xj).length();
-            sum_m += (len_xij < sr) ? _m0 * _kernel.f(len_xij) : 0;
+    }
+
+    void updatePrediction()
+    {
+#pragma omp parallel for
+        for (tIndex i = 0; i < particleCount(); ++i) {
+            if (_type[i] != 1) continue;
+            _pred_pos[i] += _dp[i];   // simple forward Euler
         }
 
 
@@ -420,9 +577,12 @@ private:
     // particle data
     std::vector<int>   _type;     // type
     std::vector<Vec2f> _pos;      // position
+    std::vector<Vec2f> _pred_pos; // predicted position
+    std::vector<Vec2f> _dp;       // position shift
     std::vector<Vec2f> _vel;      // velocity
     std::vector<Vec2f> _acc;      // acceleration
     std::vector<Real>  _p;        // pressure
+    std::vector<Real>  _lambda;        // density constraint
     std::vector<Real>  _d;        // density
 
     std::vector< std::vector<tIndex> > _pidxInGrid; // particle neighbor data
