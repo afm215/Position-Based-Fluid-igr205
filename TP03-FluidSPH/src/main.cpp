@@ -121,6 +121,7 @@ public:
         const int res_x, const int res_y, const int f_width, const int f_height)
     {
         _pos.clear();
+        _pred_pos.clear();
 
         _resX = res_x;
         _resY = res_y;
@@ -139,6 +140,10 @@ public:
                 _pos.push_back(Vec2f(i + 0.75, j + 0.25));
                 _pos.push_back(Vec2f(i + 0.25, j + 0.75));
                 _pos.push_back(Vec2f(i + 0.75, j + 0.75));
+                _pred_pos.push_back(Vec2f(i + 0.25, j + 0.25));
+                _pred_pos.push_back(Vec2f(i + 0.75, j + 0.25));
+                _pred_pos.push_back(Vec2f(i + 0.25, j + 0.75));
+                _pred_pos.push_back(Vec2f(i + 0.75, j + 0.75));
                 _type.push_back(1);     // fluid
                 _type.push_back(1);
                 _type.push_back(1);
@@ -154,6 +159,10 @@ public:
                     _pos.push_back(Vec2f(i + 0.75, j + 0.25));
                     _pos.push_back(Vec2f(i + 0.25, j + 0.75));
                     _pos.push_back(Vec2f(i + 0.75, j + 0.75));
+                    _pred_pos.push_back(Vec2f(i + 0.25, j + 0.25));
+                    _pred_pos.push_back(Vec2f(i + 0.75, j + 0.25));
+                    _pred_pos.push_back(Vec2f(i + 0.25, j + 0.75));
+                    _pred_pos.push_back(Vec2f(i + 0.75, j + 0.75));
                     _type.push_back(0);   // solid
                     _type.push_back(0);
                     _type.push_back(0);
@@ -186,9 +195,9 @@ public:
         int i = 0;
         while (i < NB_IT)
         {
+            computeDensity();
             computeLambda();
             computeDp();
-            computeDensity();
             resolveCollision();
             updatePrediction();
             i++;
@@ -301,14 +310,6 @@ private:
 #pragma omp parallel for
         for (tIndex i = 0; i < particleCount(); ++i) {
             _p[i] = std::max(equationOfState(_d[i], _d0, _p0, _gamma), Real(0.0));
-        }
-    }
-    void computeDeltaPkCi(tIndex i, tIndex k) {
-        if (i==k) {
-            
-        }
-        else {
-
         }
     }
 
@@ -438,7 +439,43 @@ private:
             _vel[i] += _dt * _acc[i];   // simple forward Euler
         }
     }
-    
+    void applyPressureForce()
+    {
+        const Real sr = _kernel.supportRadius();
+
+#pragma omp parallel for
+        for (tIndex i = 0; i < particleCount(); ++i) {
+            if (_type[i] != 1) continue;
+            Vec2f sum_grad_p(0, 0);
+            const Vec2f& xi = position(i);
+
+            const int gi_from = static_cast<int>(xi.x - sr);
+            const int gi_to = static_cast<int>(xi.x + sr) + 1;
+            const int gj_from = static_cast<int>(xi.y - sr);
+            const int gj_to = static_cast<int>(xi.y + sr) + 1;
+
+            for (int gj = std::max(0, gj_from); gj < std::min(resY(), gj_to); ++gj) {
+                for (int gi = std::max(0, gi_from); gi < std::min(resX(), gi_to); ++gi) {
+                    const tIndex gidx = idx1d(gi, gj);
+
+                    // each particle in nearby cells
+                    for (size_t ni = 0; ni < _pidxInGrid[gidx].size(); ++ni) {
+                        const tIndex j = _pidxInGrid[gidx][ni];
+                        if (i == j) continue;
+                        const Vec2f& xj = position(j);
+                        const Vec2f xij = xi - xj;
+                        const Real len_xij = xij.length();
+                        if (len_xij > sr) continue;
+
+                        sum_grad_p += (_p[i] / square(_d[i]) + _p[j] / square(_d[j])) *
+                            _kernel.grad_w(xij, len_xij);
+                    }
+                }
+            }
+
+            _acc[i] -= _m0 * sum_grad_p;
+        }
+    }
     void applyViscousForce()
     {
         const Real sr = _kernel.supportRadius();
