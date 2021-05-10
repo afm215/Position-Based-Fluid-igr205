@@ -182,7 +182,6 @@ public:
 
         _acc = std::vector<Vec2f>(_pos.size(), Vec2f(0, 0));
         applyBodyForce();
-        applyPressureForce();
         applyViscousForce();
 
         updateVelocity();
@@ -269,43 +268,7 @@ private:
             _acc[i] += _g;
         }
     }
-    void applyPressureForce()
-    {
-        const Real sr = _kernel.supportRadius();
-
-#pragma omp parallel for
-        for (tIndex i = 0; i < particleCount(); ++i) {
-            if (_type[i] != 1) continue;
-            Vec2f sum_grad_p(0, 0);
-            const Vec2f& xi = position(i);
-
-            const int gi_from = static_cast<int>(xi.x - sr);
-            const int gi_to = static_cast<int>(xi.x + sr) + 1;
-            const int gj_from = static_cast<int>(xi.y - sr);
-            const int gj_to = static_cast<int>(xi.y + sr) + 1;
-
-            for (int gj = std::max(0, gj_from); gj < std::min(resY(), gj_to); ++gj) {
-                for (int gi = std::max(0, gi_from); gi < std::min(resX(), gi_to); ++gi) {
-                    const tIndex gidx = idx1d(gi, gj);
-
-                    // each particle in nearby cells
-                    for (size_t ni = 0; ni < _pidxInGrid[gidx].size(); ++ni) {
-                        const tIndex j = _pidxInGrid[gidx][ni];
-                        if (i == j) continue;
-                        const Vec2f& xj = position(j);
-                        const Vec2f xij = xi - xj;
-                        const Real len_xij = xij.length();
-                        if (len_xij > sr) continue;
-
-                        sum_grad_p += (_p[i] / square(_d[i]) + _p[j] / square(_d[j])) *
-                            _kernel.grad_w(xij, len_xij);
-                    }
-                }
-            }
-
-            _acc[i] -= _m0 * sum_grad_p;
-        }
-    }
+    
     void applyViscousForce()
     {
         const Real sr = _kernel.supportRadius();
@@ -356,11 +319,50 @@ private:
     }
     void updatePosition()
     {
+
+        int solverIteration = 10;
+        std::vector<Vec2f> old_pos;
+
 #pragma omp parallel for
         for (tIndex i = 0; i < particleCount(); ++i) {
             if (_type[i] != 1) continue;
-            _pos[i] += _dt * _vel[i];   // simple forward Euler
+            old_pos.push_back(_pos[i]);
+            _pos[i] =  _pos[i] + _dt * _vel[i]; 
+            _vel[i] = _vel[i] + _dt * _g;// simple forward Euler
         }
+
+        buildNeighbor();
+
+        int iter = 0;
+        double c_i;
+        std::vector<double> lambda_i;
+
+           while (iter < solverIteration) {
+               for (tIndex i = 0; i < particleCount(); ++i) {
+                   if (_type[i] != 1) continue;
+                   //calculate C_i
+                   // Calculate gradiant 
+                   //Calculate lambda i
+                }
+               
+               for (tIndex i = 0; i < particleCount(); ++i) {
+                   if (_type[i] != 1) continue;
+                   //Delta p_i
+
+                   //call collision !
+                }
+
+                
+        }
+        for (size_t ni = 0; ni < _pidxInGrid[gidx].size(); ++ni) {
+            const Vec2f& xj = position(_pidxInGrid[gidx][ni]);
+            const Real len_xij = (xi - xj).length();
+            sum_m += (len_xij < sr) ? _m0 * _kernel.f(len_xij) : 0;
+        }
+
+
+
+
     }
 
     // simple collision detection/resolution for each particle
