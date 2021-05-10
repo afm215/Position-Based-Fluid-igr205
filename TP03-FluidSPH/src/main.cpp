@@ -29,7 +29,7 @@
 #define M_PI 3.141592
 #endif
 
-#define NB_IT 25
+#define NB_IT 10
 
 #include "Vector.hpp"
 
@@ -104,7 +104,7 @@ private:
 class SphSolver {
 public:
     explicit SphSolver(
-        const Real nu = 0.08, const Real h = 0.5, const Real density = 1e3,
+        const Real nu = 0.08, const Real h = 0.5, const Real density = 1,
         const Vec2f g = Vec2f(0, -9.8), const Real eta = 0.01, const Real gamma = 7.0) :
         _kernel(h), _nu(nu), _h(h), _d0(density),
         _g(g), _eta(eta), _gamma(gamma)
@@ -331,11 +331,12 @@ private:
             for (size_t ni = 0; ni < _pidxInGrid[gidx].size(); ++ni) {
 
                 const tIndex j = _pidxInGrid[gidx][ni];
+                if (j == i) continue;
                 const Vec2f& xj = position(j);
                 const Vec2f xij = xi - xj;
                 const Real len_xij = xij.length();
                 if (len_xij > sr) continue;
-
+                
                 result += 1 / _d0 * _kernel.grad_w(xij);
 
             }
@@ -647,7 +648,7 @@ private:
 
     // SPH coefficients
     Real _nu;                     // viscosity coefficient
-    Real _d0;                     // rest density
+    const Real _d0;                     // rest density
     Real _h;                      // particle spacing
     Vec2f _g;                     // gravity
 
@@ -659,7 +660,7 @@ private:
     Real _gamma;                  // EOS power factor
 };
 
-SphSolver gSolver(0.08, 0.5, 1e3, Vec2f(0, -9.8), 0.01, 7.0);
+SphSolver gSolver(0.08, 0.5, 1, Vec2f(0, -9.8), 0.01, 7.0);
 
 void printHelp()
 {
