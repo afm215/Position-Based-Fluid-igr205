@@ -121,6 +121,7 @@ public:
         const int res_x, const int res_y, const int f_width, const int f_height)
     {
         _pos.clear();
+        _pred_pos.clear();
 
         _resX = res_x;
         _resY = res_y;
@@ -139,6 +140,10 @@ public:
                 _pos.push_back(Vec2f(i + 0.75, j + 0.25));
                 _pos.push_back(Vec2f(i + 0.25, j + 0.75));
                 _pos.push_back(Vec2f(i + 0.75, j + 0.75));
+                _pred_pos.push_back(Vec2f(i + 0.25, j + 0.25));
+                _pred_pos.push_back(Vec2f(i + 0.75, j + 0.25));
+                _pred_pos.push_back(Vec2f(i + 0.25, j + 0.75));
+                _pred_pos.push_back(Vec2f(i + 0.75, j + 0.75));
                 _type.push_back(1);     // fluid
                 _type.push_back(1);
                 _type.push_back(1);
@@ -154,6 +159,10 @@ public:
                     _pos.push_back(Vec2f(i + 0.75, j + 0.25));
                     _pos.push_back(Vec2f(i + 0.25, j + 0.75));
                     _pos.push_back(Vec2f(i + 0.75, j + 0.75));
+                    _pred_pos.push_back(Vec2f(i + 0.25, j + 0.25));
+                    _pred_pos.push_back(Vec2f(i + 0.75, j + 0.25));
+                    _pred_pos.push_back(Vec2f(i + 0.25, j + 0.75));
+                    _pred_pos.push_back(Vec2f(i + 0.75, j + 0.75));
                     _type.push_back(0);   // solid
                     _type.push_back(0);
                     _type.push_back(0);
@@ -186,9 +195,9 @@ public:
         int i = 0;
         while (i < NB_IT)
         {
+            computeDensity();
             computeLambda();
             computeDp();
-            computeDensity();
             resolveCollision();
             updatePrediction();
             i++;
@@ -301,14 +310,6 @@ private:
 #pragma omp parallel for
         for (tIndex i = 0; i < particleCount(); ++i) {
             _p[i] = std::max(equationOfState(_d[i], _d0, _p0, _gamma), Real(0.0));
-        }
-    }
-    void computeDeltaPkCi(tIndex i, tIndex k) {
-        if (i==k) {
-            
-        }
-        else {
-
         }
     }
 
@@ -471,7 +472,6 @@ private:
                     }
                 }
             }
-
             _acc[i] -= _m0 * sum_grad_p;
         }
     }
