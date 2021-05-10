@@ -29,6 +29,8 @@
 #define M_PI 3.141592
 #endif
 
+#define NB_IT 25
+
 #include "Vector.hpp"
 
 // window parameters
@@ -176,26 +178,63 @@ public:
     {
         std::cout << '.' << std::flush;
 
-        buildNeighbor();
-        computeDensity();
-        computePressure();
+        // PBF :
 
-        _acc = std::vector<Vec2f>(_pos.size(), Vec2f(0, 0));
         applyBodyForce();
-        applyPressureForce();
-        applyViscousForce();
+        predictPosition();
+        buildNeighbor();
+        int i = 0;
+        while (i < NB_IT)
+        {
 
+            computeLamba();
+            computeDensity();
+            resolveCollision();
+            updatePrediction();
+            i++;
+        }
         updateVelocity();
+        applyViscousForce();
         updatePosition();
-
-        // resolveCollision();
 
         updateColor();
         if (gShowVel) updateVelLine();
+
+
+        /*
+        * // PSEUDO CODE :
+        * 
+        for all particles i do
+            apply forces vi <= vi + Dtfext(xi)
+            predict position x*i <= xi + Dtvi
+        end for
+        for all particles i do
+            find neighboring particles Ni(x*i)
+        end for
+        while iter < solverIterations do
+            for all particles i do
+                calculate li
+            end for
+            for all particles i do
+                calculate Dpi
+                perform collision detection and response
+            end for
+            for all particles i do
+                update position x*i <= x*i + Dpi
+            end for
+        end while
+        for all particles i do
+            update velocity vi <= 1/Dt(x*i - xi)
+            apply vorticity confinement and XSPH viscosity
+            update position xi <= x*i
+        end for
+        */
+
+
     }
 
     tIndex particleCount() const { return _pos.size(); }
-    const Vec2f& position(const tIndex i) const { return _pos[i]; }
+    const Vec2f& position(const tIndex i) const { return _pred_pos[i]; }
     const float& color(const tIndex i) const { return _col[i]; }
     const float& vline(const tIndex i) const { return _vln[i]; }
 
@@ -254,6 +293,9 @@ private:
             _d[i] = sum_m;
         }
     }
+
+
+
     void computePressure()
     {
 #pragma omp parallel for
@@ -261,12 +303,30 @@ private:
             _p[i] = std::max(equationOfState(_d[i], _d0, _p0, _gamma), Real(0.0));
         }
     }
+
+    void computeLambda()
+    {
+#pragma omp parallel for
+        for (tIndex i = 0; i < particleCount(); ++i) {
+            //_l[i] = ;
+        }
+    }
+
+    void computeDp()
+    {
+#pragma omp parallel for
+        for (tIndex i = 0; i < particleCount(); ++i) {
+            //_dp[i] = ;
+        }
+    }
+
     void applyBodyForce()
     {
 #pragma omp parallel for
         for (tIndex i = 0; i < particleCount(); ++i) {
             if (_type[i] != 1) continue;
             _acc[i] += _g;
+            _vel[i] += _dt * _acc[i];   // simple forward Euler
         }
     }
     void applyPressureForce()
@@ -351,7 +411,7 @@ private:
 #pragma omp parallel for
         for (tIndex i = 0; i < particleCount(); ++i) {
             if (_type[i] != 1) continue;
-            _vel[i] += _dt * _acc[i];   // simple forward Euler
+            _vel[i] += (_pred_pos[i] - _pos[i]) / _dt;
         }
     }
     void updatePosition()
@@ -359,7 +419,25 @@ private:
 #pragma omp parallel for
         for (tIndex i = 0; i < particleCount(); ++i) {
             if (_type[i] != 1) continue;
-            _pos[i] += _dt * _vel[i];   // simple forward Euler
+            _pos[i] = _pred_pos[i];
+        }
+    }
+
+    void predictPosition()
+    {
+#pragma omp parallel for
+        for (tIndex i = 0; i < particleCount(); ++i) {
+            if (_type[i] != 1) continue;
+            _pred_pos[i] += _dt * _vel[i];   // simple forward Euler
+        }
+    }
+
+    void updatePrediction()
+    {
+#pragma omp parallel for
+        for (tIndex i = 0; i < particleCount(); ++i) {
+            if (_type[i] != 1) continue;
+            _pred_pos[i] += _dp[i];   // simple forward Euler
         }
     }
 
@@ -418,9 +496,12 @@ private:
     // particle data
     std::vector<int>   _type;     // type
     std::vector<Vec2f> _pos;      // position
+    std::vector<Vec2f> _pred_pos; // predicted position
+    std::vector<Vec2f> _dp;       // position shift
     std::vector<Vec2f> _vel;      // velocity
     std::vector<Vec2f> _acc;      // acceleration
     std::vector<Real>  _p;        // pressure
+    std::vector<Real>  _l;        // density constraint
     std::vector<Real>  _d;        // density
 
     std::vector< std::vector<tIndex> > _pidxInGrid; // particle neighbor data
