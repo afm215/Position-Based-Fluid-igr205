@@ -320,11 +320,17 @@ private:
         const Real sr = _kernel.supportRadius();
         Vec2f result = Vec2f(0, 0);
 
+        Vec2f p_i = position(i);
+        int gx = static_cast<int>(p_i.x);
+        int gy = static_cast<int>(p_i.y);
+
+        int gidx = idx1d(gx, gy);
+
         if (k == i) {
 
-            for (size_t ni = 0; ni < _pidxInGrid[i].size(); ++ni) {
+            for (size_t ni = 0; ni < _pidxInGrid[gidx].size(); ++ni) {
 
-                const tIndex j = _pidxInGrid[i][ni];
+                const tIndex j = _pidxInGrid[gidx][ni];
                 const Vec2f& xj = position(j);
                 const Vec2f xij = xi - xj;
                 const Real len_xij = xij.length();
@@ -378,11 +384,15 @@ private:
             Real c_i = _d[i] / _d0 - 1;
             _lambda.push_back(c_i);
 
-
-            unsigned int size = _pos.size();
             Real sumnormgradCi = 0;
-            for(int j =0; j < size; j ++){
-                Vec2f gradCi = computeGradCi(i, j);
+
+            Vec2f p_i = position(i);
+            int gx = static_cast<int>(p_i.x);
+            int gy = static_cast<int>(p_i.y);
+
+            int gidx = idx1d(gx, gy);
+            for(int j =0; j < _pidxInGrid[gidx].size(); j ++){
+                Vec2f gradCi = computeGradCi(i, _pidxInGrid[gidx][j]);
                 sumnormgradCi +=  (square(gradCi.x) + square(gradCi.y));
                 
             }
@@ -426,7 +436,7 @@ private:
                 }
             }
 
-            _dp[i] / _d0;
+            _dp.push_back(sum_grad_p / _d0);   // TODO pas sur du tout changmeent pour debug 
         }
     }
 
