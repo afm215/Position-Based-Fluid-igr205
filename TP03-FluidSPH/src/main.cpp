@@ -25,6 +25,8 @@
 #include <vector>
 #include <cmath>
 
+#include "kernel.hpp"
+
 #ifndef M_PI
 #define M_PI 3.141592
 #endif
@@ -55,7 +57,7 @@ const int kViewScale = 15;
 // SPH Kernel function: cubic spline
 class CubicSpline {
 public:
-    explicit CubicSpline(const Real h = 1) : _dim(2)
+    explicit CubicSpline(const Real h = 3) : _dim(2)
     {
         setSmoothingLen(h);
     }
@@ -89,11 +91,11 @@ public:
         return 0;
     }
 
-    Real w(const Vec2f& rij) const { return f(rij.length()); }
+    Real w(const Vec2f& rij) const { return Poly6Value(rij.length(), _h); }
     Vec2f grad_w(const Vec2f& rij) const { return grad_w(rij, rij.length()); }
     Vec2f grad_w(const Vec2f& rij, const Real len) const
     {
-        return derivative_f(len) * rij / len;
+        return SpikyGradient(rij, _h);
     }
 
 private:
@@ -104,7 +106,7 @@ private:
 class SphSolver {
 public:
     explicit SphSolver(
-        const Real nu = 0.08, const Real h = 0.5, const Real density = 1,
+        const Real nu = 0.08, const Real h = 1, const Real density = 1,
         const Vec2f g = Vec2f(0, -9.8), const Real eta = 0.01, const Real gamma = 7.0) :
         _kernel(h), _nu(nu), _h(h), _d0(density),
         _g(g), _eta(eta), _gamma(gamma)
@@ -188,24 +190,34 @@ public:
         std::cout << '.' << std::flush;
 
         // PBF :
-
+        //apply forces v_i <= v_i + Dt * fext(xi) in this case gravity
         applyBodyForce();
+        //predict position p_i* <= p_i + Dt* v_i
         predictPosition();
         resolveCollision();
+        //compute the new neighbours using the predicted 
         buildNeighbor();
         int i = 0;
+
         while (i < NB_IT)
-        {
+        {   
+            //compute lambda_i 
+            //computeLambda use the comutegradCi function wich use the density of the paricles 
             computeDensity();
             computeLambda();
+            //calculate the difference in positions using the lamba_i
             computeDp();
             resolveCollision();
+            //update the position p_i* = p_i* + dp_i
             updatePrediction();
 
             i++;
         }
+        //update the velocities v_i = p_i* - p_i 
         updateVelocity();
-        applyViscousForce();
+        // use the newly computed velocities to compute vorticity confinement and XSPH viscosity TO DO !!!
+        //applyViscousForce();
+        //modify the position p_i = p_i *
         updatePosition();
 
         updateColor();
@@ -397,7 +409,7 @@ private:
             int gidx = idx1d(gx, gy);
             for(int j =0; j < _pidxInGrid[gidx].size(); j ++){
                 Vec2f gradCi = computeGradCi(i, _pidxInGrid[gidx][j]);
-                sumnormgradCi +=  (square(gradCi.x) + square(gradCi.y));
+                sumnormgradCi += (square(gradCi.x) + square(gradCi.y));
                 
             }
 
@@ -448,9 +460,17 @@ private:
     {
 #pragma omp parallel for
         for (tIndex i = 0; i < particleCount(); ++i) {
-            if (_type[i] != 1) continue;
-            _acc[i] = _g;
-            _vel[i] += _dt * _acc[i];   // simple forward Euler
+
+            if (_type[i] != 1) {
+                _acc[i] = _g;
+                _vel[i] += _dt * _acc[i];
+            }
+            else {
+                _acc[i] = Vec2f(0);
+                _vel[i] = Vec2f(0);
+            }
+            
+               // simple forward Euler
         }
     }
     void applyPressureForce()
@@ -527,6 +547,7 @@ private:
             }
 
             _acc[i] += 2.0 * _nu * sum_acc;
+
         }
     }
 
@@ -534,8 +555,12 @@ private:
     {
 #pragma omp parallel for
         for (tIndex i = 0; i < particleCount(); ++i) {
-            if (_type[i] != 1) continue;
-            _vel[i] += (_pred_pos[i] - _pos[i]) / _dt;
+            if (_type[i] != 1){
+                _vel[i] += (_pred_pos[i] - _pos[i]) / _dt;
+            }
+            else {
+                _vel[i] = Vec2f (0);
+            }
         }
     }
     void updatePosition()
@@ -557,6 +582,9 @@ private:
         for (tIndex i = 0; i < particleCount(); ++i) {
             if (_type[i] != 1) continue;
             _pred_pos[i] += _dt * _vel[i];   // simple forward Euler
+            if (_type[i] = 1) {
+                _pred_pos[i] = _pos[i];
+            }
         }
     }
 
@@ -664,7 +692,7 @@ private:
     Real _gamma;                  // EOS power factor
 };
 
-SphSolver gSolver(0.08, 0.5, 1, Vec2f(0, -9.8), 0.01, 7.0);
+SphSolver gSolver(0.08, 2, 1, Vec2f(0, -9.8), 0.01, 7.0);
 
 void printHelp()
 {
