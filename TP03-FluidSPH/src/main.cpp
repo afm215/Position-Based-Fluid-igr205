@@ -191,6 +191,7 @@ public:
 
         applyBodyForce();
         predictPosition();
+        resolveCollision();
         buildNeighbor();
         int i = 0;
         while (i < NB_IT)
@@ -200,6 +201,7 @@ public:
             computeDp();
             resolveCollision();
             updatePrediction();
+
             i++;
         }
         updateVelocity();
@@ -266,6 +268,7 @@ private:
         for (tIndex k = 0; k < particleCount(); ++k) {
             const Vec2f& p = position(k);
             const int i = static_cast<int>(p.x), j = static_cast<int>(p.y);
+            const int indice = idx1d(i, j);
             pidx_in_grid[idx1d(i, j)].push_back(k);
         }
 
@@ -446,7 +449,7 @@ private:
 #pragma omp parallel for
         for (tIndex i = 0; i < particleCount(); ++i) {
             if (_type[i] != 1) continue;
-            _acc[i] += _g;
+            _acc[i] = _g;
             _vel[i] += _dt * _acc[i];   // simple forward Euler
         }
     }
@@ -575,7 +578,7 @@ private:
     {
         std::vector<tIndex> need_res;
         for (tIndex i = 0; i < particleCount(); ++i) {
-            if (_pos[i].x<_l || _pos[i].y<_b || _pos[i].x>_r || _pos[i].y>_t)
+            if (_pred_pos[i].x<_l || _pred_pos[i].y<_b || _pred_pos[i].x>_r || _pred_pos[i].y>_t)
                 need_res.push_back(i);
         }
 
@@ -584,9 +587,10 @@ private:
             it < need_res.end();
             ++it) {
             const Vec2f p0 = _pos[*it];
-            _pos[*it].x = clamp(_pos[*it].x, _l, _r);
-            _pos[*it].y = clamp(_pos[*it].y, _b, _t);
-            _vel[*it] = (_pos[*it] - p0) / _dt;
+            _pred_pos[*it].x = clamp(_pred_pos[*it].x, _l, _r);
+            _pred_pos[*it].y = clamp(_pred_pos[*it].y, _b, _t);
+            _vel[*it] = (_pred_pos[*it] - p0) / _dt;
+            
         }
     }
 
@@ -769,7 +773,7 @@ void initOpenGL()
 
 void init()
 {
-    gSolver.initScene(15, 20, 5, 10);
+    gSolver.initScene(15, 40, 5, 10);
 
     initGLFW();                   // Windowing system
     initOpenGL();
