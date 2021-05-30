@@ -111,7 +111,7 @@ public:
         _kernel(h), _nu(nu), _h(h), _d0(density),
         _g(g), _eta(eta), _gamma(gamma)
     {
-        _dt = 0.0005;
+        _dt = 0.0016;
         _m0 = _d0 * _h * _h;
         _c = std::fabs(_g.y) / _eta;
         _p0 = _d0 * _c * _c / _gamma;     // k of EOS
@@ -219,6 +219,7 @@ public:
         }
         //update the velocities v_i = p_i* - p_i 
         updateVelocity();
+        computeVorticity();
         applyViscousForce();
         // use the newly computed velocities to compute vorticity confinement and XSPH viscosity TO DO !!!
         //applyViscousForce();
@@ -315,8 +316,9 @@ private:
                     // each particle in nearby cells
                     for (size_t ni = 0; ni < _pidxInGrid[gidx].size(); ++ni) {
                         const Vec2f& xj = position(_pidxInGrid[gidx][ni]);
-                        const Real len_xij = (xi - xj).length();
-                        sum_m += (len_xij < sr) ? _m0 * _kernel.f(len_xij) : 0;
+                        const Vec2f xij = xi - xj;
+                        const Real len_xij = xij.length();
+                        sum_m += (len_xij < sr) ? _m0 * _kernel.w(xij) : 0;
                     }
                 }
             }
@@ -388,27 +390,49 @@ private:
         const Real sr = _kernel.supportRadius();
         Vec2f result = Vec2f(0, 0);
 
-        
 
-        for (size_t ni = 0; ni < _pidxInGrid[i].size(); ++ni) {
+        const int gi_from = static_cast<int>(xi.x - sr);
+        const int gi_to = static_cast<int>(xi.x + sr) + 1;
+        const int gj_from = static_cast<int>(xi.y - sr);
+        const int gj_to = static_cast<int>(xi.y + sr) + 1;
 
-            const tIndex j = _pidxInGrid[i][ni];
-            const Vec2f& xj = position(j);
-            const Vec2f xij = xi - xj;
-            const Real len_xij = xij.length();
-            if (len_xij > sr) continue;
-           Vec2f vij = _vel[j] - _vel[i];
-            result -=  vij * _kernel.grad_w(xij); // WARNING wait to be sure (grad-pj = - grad ??)
+        for (int gj = std::max(0, gj_from); gj < std::min(resY(), gj_to); ++gj) {
+            for (int gi = std::max(0, gi_from); gi < std::min(resX(), gi_to); ++gi) {
+                const tIndex gidx = idx1d(gi, gj);
 
+
+                for (size_t ni = 0; ni < _pidxInGrid[gidx].size(); ++ni) {
+
+                    const tIndex j = _pidxInGrid[gidx][ni];
+                    const Vec2f& xj = position(j);
+                    const Vec2f xij = xi - xj;
+                    const Real len_xij = xij.length();
+                    if (len_xij > sr) continue;
+                    Vec2f vij = _vel[j] - _vel[i];
+                    result -= vij * _kernel.grad_w(xij); // WARNING wait to be sure (grad-pj = - grad ??)
+
+                }
+            }
         }
 
        return result;
        
     }
 
+    void computeVorticity() {
+#pragma omp parallel for
+        for (tIndex i = 0; i < particleCount(); i++) {
+            Vec2f w_i = compute_w_i(i);
+            Vec2f N = _kernel.grad_w(w_i);
+            N = N.normalize();
+            _vel[i] += _dt *  _m0 *  DBL_EPSILON * N.crossProduct(w_i);
+        }
+    }
+
 
     void computeLambda()
     {
+        const Real sr = _kernel.supportRadius();
 #pragma omp parallel for
         for (tIndex i = 0; i < particleCount(); ++i) {
 
@@ -419,14 +443,25 @@ private:
             Real sumnormgradCi = 0;
 
             Vec2f p_i = position(i);
-            int gx = static_cast<int>(p_i.x);
-            int gy = static_cast<int>(p_i.y);
+            
 
-            int gidx = idx1d(gx, gy);
-            for(int j =0; j < _pidxInGrid[gidx].size(); j ++){
-                Vec2f gradCi = computeGradCi(i, _pidxInGrid[gidx][j]);
-                sumnormgradCi += (square(gradCi.x) + square(gradCi.y));
-                
+
+            const int gi_from = static_cast<int>(p_i.x - sr);
+            const int gi_to = static_cast<int>(p_i.x + sr) + 1;
+            const int gj_from = static_cast<int>(p_i.y - sr);
+            const int gj_to = static_cast<int>(p_i.y + sr) + 1;
+
+
+            for (int gj = std::max(0, gj_from); gj < std::min(resY(), gj_to); ++gj) {
+                for (int gi = std::max(0, gi_from); gi < std::min(resX(), gi_to); ++gi) {
+                    const tIndex gidx = idx1d(gi, gj);
+
+                    for (size_t ni = 0; ni < _pidxInGrid[gidx].size(); ++ni) {
+                        Vec2f gradCi = computeGradCi(i, _pidxInGrid[gidx][ni]);
+                        sumnormgradCi += (square(gradCi.x) + square(gradCi.y));
+
+                    }
+                }
             }
 
 
@@ -580,7 +615,7 @@ private:
             }
             else {
                 _vel[i] = Vec2f (0);
-                std::cout << i << std::endl;
+
             }
         }
     }
