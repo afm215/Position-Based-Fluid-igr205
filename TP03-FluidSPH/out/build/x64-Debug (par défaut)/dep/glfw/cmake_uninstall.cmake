@@ -1,9 +1,9 @@
 
-if (NOT EXISTS "C:/Users/galau/OneDrive/Documents/Clément/Ecole/2A/IGR/IGR202/TP03-FluidSPH/out/build/x64-Debug (par défaut)/dep/glfw/install_manifest.txt")
-  message(FATAL_ERROR "Cannot find install manifest: \"C:/Users/galau/OneDrive/Documents/Clément/Ecole/2A/IGR/IGR202/TP03-FluidSPH/out/build/x64-Debug (par défaut)/dep/glfw/install_manifest.txt\"")
+if (NOT EXISTS "D:/1.COURS/TELECOM/IGR/IGR205/igr205/TP03-FluidSPH/out/build/x64-Debug (par défaut)/dep/glfw/install_manifest.txt")
+  message(FATAL_ERROR "Cannot find install manifest: \"D:/1.COURS/TELECOM/IGR/IGR205/igr205/TP03-FluidSPH/out/build/x64-Debug (par défaut)/dep/glfw/install_manifest.txt\"")
 endif()
 
-file(READ "C:/Users/galau/OneDrive/Documents/Clément/Ecole/2A/IGR/IGR202/TP03-FluidSPH/out/build/x64-Debug (par défaut)/dep/glfw/install_manifest.txt" files)
+file(READ "D:/1.COURS/TELECOM/IGR/IGR205/igr205/TP03-FluidSPH/out/build/x64-Debug (par défaut)/dep/glfw/install_manifest.txt" files)
 string(REGEX REPLACE "\n" ";" files "${files}")
 
 foreach (file ${files})

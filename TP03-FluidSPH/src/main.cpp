@@ -25,11 +25,13 @@
 #include <vector>
 #include <cmath>
 
+#include "kernel.hpp"
+
 #ifndef M_PI
 #define M_PI 3.141592
 #endif
 
-#define NB_IT 10
+#define NB_IT 1
 
 #include "Vector.hpp"
 
@@ -55,7 +57,7 @@ const int kViewScale = 15;
 // SPH Kernel function: cubic spline
 class CubicSpline {
 public:
-    explicit CubicSpline(const Real h = 1) : _dim(2)
+    explicit CubicSpline(const Real h = 3) : _dim(2)
     {
         setSmoothingLen(h);
     }
@@ -89,11 +91,11 @@ public:
         return 0;
     }
 
-    Real w(const Vec2f& rij) const { return f(rij.length()); }
+    Real w(const Vec2f& rij) const { return Poly6Value(rij.length(), _h); }
     Vec2f grad_w(const Vec2f& rij) const { return grad_w(rij, rij.length()); }
     Vec2f grad_w(const Vec2f& rij, const Real len) const
     {
-        return derivative_f(len) * rij / len;
+        return SpikyGradient(rij, _h);
     }
 
 private:
@@ -104,7 +106,7 @@ private:
 class SphSolver {
 public:
     explicit SphSolver(
-        const Real nu = 0.08, const Real h = 0.5, const Real density = 1,
+        const Real nu = 0.08, const Real h = 1, const Real density = 1,
         const Vec2f g = Vec2f(0, -9.8), const Real eta = 0.01, const Real gamma = 7.0) :
         _kernel(h), _nu(nu), _h(h), _d0(density),
         _g(g), _eta(eta), _gamma(gamma)
@@ -136,6 +138,7 @@ public:
         for (int j = 0; j < f_height; ++j) {
             for (int i = 0; i < f_width; ++i) {
                 if (i == 0 || j == 0) continue;
+                // offset
                 int I = i + 5;
                 int J = j + 5;
                 _pos.push_back(Vec2f(I + 0.25, J + 0.25));
@@ -190,24 +193,36 @@ public:
         std::cout << '.' << std::flush;
 
         // PBF :
-
+        //apply forces v_i <= v_i + Dt * fext(xi) in this case gravity
         applyBodyForce();
+        //predict position p_i* <= p_i + Dt* v_i
         predictPosition();
-        resolveCollision();
+       // resolveCollision();
+        //compute the new neighbours using the predicted 
         buildNeighbor();
         int i = 0;
+
         while (i < NB_IT)
-        {
+        {   
+            
+            //compute lambda_i 
+            //computeLambda use the comutegradCi function wich use the density of the paricles 
             computeDensity();
             computeLambda();
+            //calculate the difference in positions using the lamba_i
             computeDp();
             resolveCollision();
+            //update the position p_i* = p_i* + dp_i
             updatePrediction();
 
             i++;
         }
+        //update the velocities v_i = p_i* - p_i 
         updateVelocity();
         applyViscousForce();
+        // use the newly computed velocities to compute vorticity confinement and XSPH viscosity TO DO !!!
+        //applyViscousForce();
+        //modify the position p_i = p_i *
         updatePosition();
 
         updateColor();
@@ -216,7 +231,7 @@ public:
 
         /*
         * // PSEUDO CODE :
-        *
+        * 
         for all particles i do
             apply forces vi <= vi + Dtfext(xi)
             predict position x*i <= xi + Dtvi
@@ -242,6 +257,8 @@ public:
             update position xi <= x*i
         end for
         */
+
+
     }
 
     tIndex particleCount() const { return _pos.size(); }
@@ -267,7 +284,9 @@ private:
 
         for (tIndex k = 0; k < particleCount(); ++k) {
             const Vec2f& p = position(k);
-            const int i = static_cast<int>(p.x), j = static_cast<int>(p.y);
+            int i = static_cast<int>(p.x), j = static_cast<int>(p.y);
+            
+            
             const int indice = idx1d(i, j);
             pidx_in_grid[idx1d(i, j)].push_back(k);
         }
@@ -307,13 +326,14 @@ private:
     }
 
 
-    void computePressure()
-    {
-#pragma omp parallel for
-        for (tIndex i = 0; i < particleCount(); ++i) {
-            _p[i] = std::max(equationOfState(_d[i], _d0, _p0, _gamma), Real(0.0));
-        }
-    }
+
+//    void computePressure()
+//    {
+//#pragma omp parallel for
+//        for (tIndex i = 0; i < particleCount(); ++i) {
+//            _p[i] = std::max(equationOfState(_d[i], _d0, _p0, _gamma), Real(0.0));
+//        }
+//    }
 
     Vec2f computeGradCi(int i, int k) {
 
@@ -338,15 +358,15 @@ private:
                 const Vec2f xij = xi - xj;
                 const Real len_xij = xij.length();
                 if (len_xij > sr) continue;
-
+                
                 result += 1 / _d0 * _kernel.grad_w(xij);
 
             }
 
             return result;
         }
-
-        else {
+    
+        else{
             const Vec2f& xk = position(k);
             const Vec2f xik = xi - xk;
             result -= 1 / _d0 * _kernel.grad_w(xik);
@@ -354,34 +374,36 @@ private:
         }
     }
 
-    Vec2f compute_w_i(int i) {
-        const Vec2f& xi = position(i);
-        const Real sr = _kernel.supportRadius();
-        Vec2f result = Vec2f(0, 0);
+    //Vec2f compute_w_i(int i){
+    //    const Vec2f& xi = position(i);
+    //    const Real sr = _kernel.supportRadius();
+    //    Vec2f result = Vec2f(0, 0);
 
+    //    
 
+    //    for (size_t ni = 0; ni < _pidxInGrid[i].size(); ++ni) {
 
-        for (size_t ni = 0; ni < _pidxInGrid[i].size(); ++ni) {
+    //        const tIndex j = _pidxInGrid[i][ni];
+    //        const Vec2f& xj = position(j);
+    //        const Vec2f xij = xi - xj;
+    //        const Real len_xij = xij.length();
+    //        if (len_xij > sr) continue;
+    //        Vec2f vij = _vel[j] - _vel[i];
+    //        result -=  vij * _kernel.grad_w(xij); // WARNING wait to be sure (grad-pj = - grad ??)
 
-            const tIndex j = _pidxInGrid[i][ni];
-            const Vec2f& xj = position(j);
-            const Vec2f xij = xi - xj;
-            const Real len_xij = xij.length();
-            if (len_xij > sr) continue;
-            Vec2f vij = _vel[j] - _vel[i];
-            result -= vij * _kernel.grad_w(xij); // WARNING wait to be sure (grad-pj = - grad ??)
+    //    }
 
-        }
-
-        return result;
-
-    }
+    //    return result;
+    //    
+    //}
 
 
     void computeLambda()
     {
 #pragma omp parallel for
         for (tIndex i = 0; i < particleCount(); ++i) {
+
+
             Real c_i = _d[i] / _d0 - 1;
             _lambda.push_back(c_i);
 
@@ -392,15 +414,15 @@ private:
             int gy = static_cast<int>(p_i.y);
 
             int gidx = idx1d(gx, gy);
-            for (int j = 0; j < _pidxInGrid[gidx].size(); j++) {
+            for(int j =0; j < _pidxInGrid[gidx].size(); j ++){
                 Vec2f gradCi = computeGradCi(i, _pidxInGrid[gidx][j]);
                 sumnormgradCi += (square(gradCi.x) + square(gradCi.y));
-
+                
             }
 
 
             _lambda[i] /= (sumnormgradCi + DBL_EPSILON);
-
+         
         }
     }
 
@@ -431,8 +453,9 @@ private:
                         const Vec2f xij = xi - xj;
                         const Real len_xij = xij.length();
                         if (len_xij > sr) continue;
-
-                        sum_grad_p += (_lambda[i] + _lambda[j]) * _kernel.grad_w(xij, len_xij);
+                        Vec2f dq = Vec2f(0.2, 0.2); 
+                        Real scorr = -0.1 * pow(_kernel.w(xij), 4);
+                        sum_grad_p += (_lambda[i]+ _lambda[j])*_kernel.grad_w(xij, len_xij);
                     }
                 }
             }
@@ -445,9 +468,17 @@ private:
     {
 #pragma omp parallel for
         for (tIndex i = 0; i < particleCount(); ++i) {
-            if (_type[i] != 1) continue;
-            _acc[i] = _g;
-            _vel[i] += _dt * _acc[i];   // simple forward Euler
+
+            if (_type[i] == 1) {
+                _acc[i] = _g;
+                _vel[i] += _dt * _acc[i];
+            }
+            else {
+                _acc[i] = Vec2f(0);
+                _vel[i] = Vec2f(0);
+            }
+            
+               // simple forward Euler
         }
     }
     void applyPressureForce()
@@ -484,7 +515,7 @@ private:
                 }
             }
 
-            _acc[i] -= _m0 * sum_grad_p;
+            _vel[i] -= _m0 * sum_grad_p * _dt;
         }
     }
     void applyViscousForce()
@@ -523,7 +554,8 @@ private:
                 }
             }
 
-            _acc[i] += 2.0 * _nu * sum_acc;
+            _vel[i] += 2.0 * _nu * sum_acc;
+
         }
     }
 
@@ -531,8 +563,13 @@ private:
     {
 #pragma omp parallel for
         for (tIndex i = 0; i < particleCount(); ++i) {
-            if (_type[i] != 1) continue;
-            _vel[i] += (_pred_pos[i] - _pos[i]) / _dt;
+            if (_type[i] == 1){
+                _vel[i] = (_pred_pos[i] - _pos[i]) / _dt / 30000000;
+            }
+            else {
+                _vel[i] = Vec2f (0);
+                std::cout << i << std::endl;
+            }
         }
     }
     void updatePosition()
@@ -553,7 +590,10 @@ private:
 #pragma omp parallel for
         for (tIndex i = 0; i < particleCount(); ++i) {
             if (_type[i] != 1) continue;
-            _pred_pos[i] += _dt * _vel[i];   // simple forward Euler
+            _pred_pos[i] = _pos[i] +  _dt * _vel[i];   // simple forward Euler
+            if (_type[i] = 1) {
+                _pred_pos[i] = _pos[i];
+            }
         }
     }
 
@@ -587,7 +627,7 @@ private:
             _pred_pos[*it].x = clamp(_pred_pos[*it].x, _l, _r);
             _pred_pos[*it].y = clamp(_pred_pos[*it].y, _b, _t);
             _vel[*it] = (_pred_pos[*it] - p0) / _dt;
-
+            
         }
     }
 
@@ -661,7 +701,7 @@ private:
     Real _gamma;                  // EOS power factor
 };
 
-SphSolver gSolver(0.08, 0.5, 1, Vec2f(0, -9.8), 0.01, 7.0);
+SphSolver gSolver(0.08, 2, 1, Vec2f(0, -9.8), 0.01, 7.0);
 
 void printHelp()
 {
@@ -770,7 +810,7 @@ void initOpenGL()
 
 void init()
 {
-    gSolver.initScene(15, 40, 5, 10);
+    gSolver.initScene(30, 80, 4, 4);
 
     initGLFW();                   // Windowing system
     initOpenGL();
