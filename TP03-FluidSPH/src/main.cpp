@@ -29,7 +29,7 @@
 #define M_PI 3.141592
 #endif
 
-#define NB_IT 25
+#define NB_IT 10
 
 #include "Vector.hpp"
 
@@ -104,7 +104,7 @@ private:
 class SphSolver {
 public:
     explicit SphSolver(
-        const Real nu = 0.08, const Real h = 0.5, const Real density = 1e3,
+        const Real nu = 0.08, const Real h = 0.5, const Real density = 1,
         const Vec2f g = Vec2f(0, -9.8), const Real eta = 0.01, const Real gamma = 7.0) :
         _kernel(h), _nu(nu), _h(h), _d0(density),
         _g(g), _eta(eta), _gamma(gamma)
@@ -136,14 +136,16 @@ public:
         for (int j = 0; j < f_height; ++j) {
             for (int i = 0; i < f_width; ++i) {
                 if (i == 0 || j == 0) continue;
-                _pos.push_back(Vec2f(i + 0.25, j + 0.25));
-                _pos.push_back(Vec2f(i + 0.75, j + 0.25));
-                _pos.push_back(Vec2f(i + 0.25, j + 0.75));
-                _pos.push_back(Vec2f(i + 0.75, j + 0.75));
-                _pred_pos.push_back(Vec2f(i + 0.25, j + 0.25));
-                _pred_pos.push_back(Vec2f(i + 0.75, j + 0.25));
-                _pred_pos.push_back(Vec2f(i + 0.25, j + 0.75));
-                _pred_pos.push_back(Vec2f(i + 0.75, j + 0.75));
+                int I = i + 5;
+                int J = j + 5;
+                _pos.push_back(Vec2f(I + 0.25, J + 0.25));
+                _pos.push_back(Vec2f(I + 0.75, J + 0.25));
+                _pos.push_back(Vec2f(I + 0.25, J + 0.75));
+                _pos.push_back(Vec2f(I + 0.75, J + 0.75));
+                _pred_pos.push_back(Vec2f(I + 0.25, J + 0.25));
+                _pred_pos.push_back(Vec2f(I + 0.75, J + 0.25));
+                _pred_pos.push_back(Vec2f(I + 0.25, J + 0.75));
+                _pred_pos.push_back(Vec2f(I + 0.75, J + 0.75));
                 _type.push_back(1);     // fluid
                 _type.push_back(1);
                 _type.push_back(1);
@@ -191,6 +193,7 @@ public:
 
         applyBodyForce();
         predictPosition();
+        resolveCollision();
         buildNeighbor();
         int i = 0;
         while (i < NB_IT)
@@ -200,6 +203,7 @@ public:
             computeDp();
             resolveCollision();
             updatePrediction();
+
             i++;
         }
         updateVelocity();
@@ -212,7 +216,7 @@ public:
 
         /*
         * // PSEUDO CODE :
-        * 
+        *
         for all particles i do
             apply forces vi <= vi + Dtfext(xi)
             predict position x*i <= xi + Dtvi
@@ -238,8 +242,6 @@ public:
             update position xi <= x*i
         end for
         */
-
-
     }
 
     tIndex particleCount() const { return _pos.size(); }
@@ -266,6 +268,7 @@ private:
         for (tIndex k = 0; k < particleCount(); ++k) {
             const Vec2f& p = position(k);
             const int i = static_cast<int>(p.x), j = static_cast<int>(p.y);
+            const int indice = idx1d(i, j);
             pidx_in_grid[idx1d(i, j)].push_back(k);
         }
 
@@ -304,7 +307,6 @@ private:
     }
 
 
-
     void computePressure()
     {
 #pragma omp parallel for
@@ -320,11 +322,18 @@ private:
         const Real sr = _kernel.supportRadius();
         Vec2f result = Vec2f(0, 0);
 
+        Vec2f p_i = position(i);
+        int gx = static_cast<int>(p_i.x);
+        int gy = static_cast<int>(p_i.y);
+
+        int gidx = idx1d(gx, gy);
+
         if (k == i) {
 
-            for (size_t ni = 0; ni < _pidxInGrid[i].size(); ++ni) {
+            for (size_t ni = 0; ni < _pidxInGrid[gidx].size(); ++ni) {
 
-                const tIndex j = _pidxInGrid[i][ni];
+                const tIndex j = _pidxInGrid[gidx][ni];
+                if (j == i) continue;
                 const Vec2f& xj = position(j);
                 const Vec2f xij = xi - xj;
                 const Real len_xij = xij.length();
@@ -336,8 +345,8 @@ private:
 
             return result;
         }
-    
-        else{
+
+        else {
             const Vec2f& xk = position(k);
             const Vec2f xik = xi - xk;
             result -= 1 / _d0 * _kernel.grad_w(xik);
@@ -345,12 +354,12 @@ private:
         }
     }
 
-    Vec2f compute_w_i(int i){
+    Vec2f compute_w_i(int i) {
         const Vec2f& xi = position(i);
         const Real sr = _kernel.supportRadius();
         Vec2f result = Vec2f(0, 0);
 
-        
+
 
         for (size_t ni = 0; ni < _pidxInGrid[i].size(); ++ni) {
 
@@ -360,12 +369,12 @@ private:
             const Real len_xij = xij.length();
             if (len_xij > sr) continue;
             Vec2f vij = _vel[j] - _vel[i];
-            result -=  vij * _kernel.grad_w(xij); // WARNING wait to be sure (grad-pj = - grad ??)
+            result -= vij * _kernel.grad_w(xij); // WARNING wait to be sure (grad-pj = - grad ??)
 
         }
 
         return result;
-        
+
     }
 
 
@@ -373,23 +382,25 @@ private:
     {
 #pragma omp parallel for
         for (tIndex i = 0; i < particleCount(); ++i) {
-
-
             Real c_i = _d[i] / _d0 - 1;
             _lambda.push_back(c_i);
 
-
-            unsigned int size = _pos.size();
             Real sumnormgradCi = 0;
-            for(int j =0; j < size; j ++){
-                Vec2f gradCi = computeGradCi(i, j);
-                sumnormgradCi +=  (square(gradCi.x) + square(gradCi.y));
-                
+
+            Vec2f p_i = position(i);
+            int gx = static_cast<int>(p_i.x);
+            int gy = static_cast<int>(p_i.y);
+
+            int gidx = idx1d(gx, gy);
+            for (int j = 0; j < _pidxInGrid[gidx].size(); j++) {
+                Vec2f gradCi = computeGradCi(i, _pidxInGrid[gidx][j]);
+                sumnormgradCi += (square(gradCi.x) + square(gradCi.y));
+
             }
 
 
             _lambda[i] /= (sumnormgradCi + DBL_EPSILON);
-         
+
         }
     }
 
@@ -421,12 +432,12 @@ private:
                         const Real len_xij = xij.length();
                         if (len_xij > sr) continue;
 
-                        sum_grad_p += (_lambda[i]+ _lambda[j])*_kernel.grad_w(xij, len_xij);
+                        sum_grad_p += (_lambda[i] + _lambda[j]) * _kernel.grad_w(xij, len_xij);
                     }
                 }
             }
 
-            _dp[i] / _d0;
+            _dp.push_back(sum_grad_p / _d0);   // TODO pas sur du tout changmeent pour debug 
         }
     }
 
@@ -435,7 +446,7 @@ private:
 #pragma omp parallel for
         for (tIndex i = 0; i < particleCount(); ++i) {
             if (_type[i] != 1) continue;
-            _acc[i] += _g;
+            _acc[i] = _g;
             _vel[i] += _dt * _acc[i];   // simple forward Euler
         }
     }
@@ -472,6 +483,7 @@ private:
                     }
                 }
             }
+
             _acc[i] -= _m0 * sum_grad_p;
         }
     }
@@ -525,6 +537,10 @@ private:
     }
     void updatePosition()
     {
+
+        int solverIteration = 10;
+        std::vector<Vec2f> old_pos;
+
 #pragma omp parallel for
         for (tIndex i = 0; i < particleCount(); ++i) {
             if (_type[i] != 1) continue;
@@ -548,6 +564,10 @@ private:
             if (_type[i] != 1) continue;
             _pred_pos[i] += _dp[i];   // simple forward Euler
         }
+
+
+
+
     }
 
     // simple collision detection/resolution for each particle
@@ -555,7 +575,7 @@ private:
     {
         std::vector<tIndex> need_res;
         for (tIndex i = 0; i < particleCount(); ++i) {
-            if (_pos[i].x<_l || _pos[i].y<_b || _pos[i].x>_r || _pos[i].y>_t)
+            if (_pred_pos[i].x<_l || _pred_pos[i].y<_b || _pred_pos[i].x>_r || _pred_pos[i].y>_t)
                 need_res.push_back(i);
         }
 
@@ -564,9 +584,10 @@ private:
             it < need_res.end();
             ++it) {
             const Vec2f p0 = _pos[*it];
-            _pos[*it].x = clamp(_pos[*it].x, _l, _r);
-            _pos[*it].y = clamp(_pos[*it].y, _b, _t);
-            _vel[*it] = (_pos[*it] - p0) / _dt;
+            _pred_pos[*it].x = clamp(_pred_pos[*it].x, _l, _r);
+            _pred_pos[*it].y = clamp(_pred_pos[*it].y, _b, _t);
+            _vel[*it] = (_pred_pos[*it] - p0) / _dt;
+
         }
     }
 
@@ -628,7 +649,7 @@ private:
 
     // SPH coefficients
     Real _nu;                     // viscosity coefficient
-    Real _d0;                     // rest density
+    const Real _d0;                     // rest density
     Real _h;                      // particle spacing
     Vec2f _g;                     // gravity
 
@@ -640,7 +661,7 @@ private:
     Real _gamma;                  // EOS power factor
 };
 
-SphSolver gSolver(0.08, 0.5, 1e3, Vec2f(0, -9.8), 0.01, 7.0);
+SphSolver gSolver(0.08, 0.5, 1, Vec2f(0, -9.8), 0.01, 7.0);
 
 void printHelp()
 {
@@ -749,7 +770,7 @@ void initOpenGL()
 
 void init()
 {
-    gSolver.initScene(15, 20, 5, 10);
+    gSolver.initScene(15, 40, 5, 10);
 
     initGLFW();                   // Windowing system
     initOpenGL();
