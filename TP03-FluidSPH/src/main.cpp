@@ -453,7 +453,7 @@ private:
                         const Vec2f xij = xi - xj;
                         const Real len_xij = xij.length();
                         if (len_xij > sr) continue;
-                        Vec2f dq = Vec2f(0.2, 0.2);
+                        Vec2f dq = Vec2f(0.2, 0.2); 
                         Real scorr = -0.1 * pow(_kernel.w(xij), 4);
                         sum_grad_p += (_lambda[i]+ _lambda[j])*_kernel.grad_w(xij, len_xij);
                     }
