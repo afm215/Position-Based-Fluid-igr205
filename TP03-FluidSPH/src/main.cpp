@@ -106,7 +106,7 @@ private:
 class SphSolver {
 public:
     explicit SphSolver(
-        const Real nu = 0.08, const Real h = 1, const Real density = 1,
+        const Real nu = 0.08, const Real h = 1, const Real density = 1000,
         const Vec2f g = Vec2f(0, -9.8), const Real eta = 0.01, const Real gamma = 7.0) :
         _kernel(h), _nu(nu), _h(h), _d0(density),
         _g(g), _eta(eta), _gamma(gamma)
@@ -343,24 +343,33 @@ private:
         Vec2f result = Vec2f(0, 0);
 
         Vec2f p_i = position(i);
-        int gx = static_cast<int>(p_i.x);
-        int gy = static_cast<int>(p_i.y);
 
-        int gidx = idx1d(gx, gy);
-
+      
         if (k == i) {
 
-            for (size_t ni = 0; ni < _pidxInGrid[gidx].size(); ++ni) {
+            const int gi_from = static_cast<int>(p_i.x - sr);
+            const int gi_to = static_cast<int>(p_i.x + sr) + 1;
+            const int gj_from = static_cast<int>(p_i.y - sr);
+            const int gj_to = static_cast<int>(p_i.y + sr) + 1;
 
-                const tIndex j = _pidxInGrid[gidx][ni];
-                if (j == i) continue;
-                const Vec2f& xj = position(j);
-                const Vec2f xij = xi - xj;
-                const Real len_xij = xij.length();
-                if (len_xij > sr) continue;
-                
-                result += 1 / _d0 * _kernel.grad_w(xij);
 
+            for (int gj = std::max(0, gj_from); gj < std::min(resY(), gj_to); ++gj) {
+                for (int gi = std::max(0, gi_from); gi < std::min(resX(), gi_to); ++gi) {
+                    const tIndex gidx = idx1d(gi, gj);
+
+                    for (size_t ni = 0; ni < _pidxInGrid[gidx].size(); ++ni) {
+
+                        const tIndex j = _pidxInGrid[gidx][ni];
+                        if (j == i) continue;
+                        const Vec2f& xj = position(j);
+                        const Vec2f xij = xi - xj;
+                        const Real len_xij = xij.length();
+                        if (len_xij > sr) continue;
+
+                        result += 1 / _d0 * _kernel.grad_w(xij);
+
+                    }
+                }
             }
 
             return result;
@@ -374,28 +383,28 @@ private:
         }
     }
 
-    //Vec2f compute_w_i(int i){
-    //    const Vec2f& xi = position(i);
-    //    const Real sr = _kernel.supportRadius();
-    //    Vec2f result = Vec2f(0, 0);
+    Vec2f compute_w_i(int i){
+        const Vec2f& xi = position(i);
+        const Real sr = _kernel.supportRadius();
+        Vec2f result = Vec2f(0, 0);
 
-    //    
+        
 
-    //    for (size_t ni = 0; ni < _pidxInGrid[i].size(); ++ni) {
+        for (size_t ni = 0; ni < _pidxInGrid[i].size(); ++ni) {
 
-    //        const tIndex j = _pidxInGrid[i][ni];
-    //        const Vec2f& xj = position(j);
-    //        const Vec2f xij = xi - xj;
-    //        const Real len_xij = xij.length();
-    //        if (len_xij > sr) continue;
-    //        Vec2f vij = _vel[j] - _vel[i];
-    //        result -=  vij * _kernel.grad_w(xij); // WARNING wait to be sure (grad-pj = - grad ??)
+            const tIndex j = _pidxInGrid[i][ni];
+            const Vec2f& xj = position(j);
+            const Vec2f xij = xi - xj;
+            const Real len_xij = xij.length();
+            if (len_xij > sr) continue;
+           Vec2f vij = _vel[j] - _vel[i];
+            result -=  vij * _kernel.grad_w(xij); // WARNING wait to be sure (grad-pj = - grad ??)
 
-    //    }
+        }
 
-    //    return result;
-    //    
-    //}
+       return result;
+       
+    }
 
 
     void computeLambda()
@@ -436,6 +445,9 @@ private:
             Vec2f sum_grad_p(0, 0);
             const Vec2f& xi = position(i);
 
+            Vec2f dq = Vec2f(0.4 * sqrtf(_h), 0.4 * sqrtf(_h));
+
+
             const int gi_from = static_cast<int>(xi.x - sr);
             const int gi_to = static_cast<int>(xi.x + sr) + 1;
             const int gj_from = static_cast<int>(xi.y - sr);
@@ -453,9 +465,8 @@ private:
                         const Vec2f xij = xi - xj;
                         const Real len_xij = xij.length();
                         if (len_xij > sr) continue;
-                        Vec2f dq = Vec2f(0.2, 0.2); 
-                        Real scorr = -0.1 * pow(_kernel.w(xij), 4);
-                        sum_grad_p += (_lambda[i]+ _lambda[j])*_kernel.grad_w(xij, len_xij);
+                        Real scorr = -0.1 * pow(_kernel.w(xij) / _kernel.w(dq), 4);
+                        sum_grad_p += (_lambda[i]+ _lambda[j] + scorr)*_kernel.grad_w(xij, len_xij);
                     }
                 }
             }
@@ -521,6 +532,7 @@ private:
     void applyViscousForce()
     {
         const Real sr = _kernel.supportRadius();
+        Real c = 0.01;
 
 #pragma omp parallel for
         for (tIndex i = 0; i < particleCount(); ++i) {
@@ -547,14 +559,14 @@ private:
                         const Real len_xij = xij.length();
                         if (len_xij > sr) continue;
 
-                        sum_acc += (_m0 / _d[j]) *
-                            vij * xij.dotProduct(_kernel.grad_w(xij, len_xij)) /
-                            (xij.dotProduct(xij) + 0.01 * square(_h));
+                        sum_acc += 
+                            vij*_kernel.w(xij);
+                            
                     }
                 }
             }
 
-            _vel[i] += 2.0 * _nu * sum_acc;
+            _vel[i] += c * sum_acc;
 
         }
     }
