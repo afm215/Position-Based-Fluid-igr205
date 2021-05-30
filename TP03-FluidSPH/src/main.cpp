@@ -219,6 +219,7 @@ public:
         }
         //update the velocities v_i = p_i* - p_i 
         updateVelocity();
+        applyViscousForce();
         // use the newly computed velocities to compute vorticity confinement and XSPH viscosity TO DO !!!
         //applyViscousForce();
         //modify the position p_i = p_i *
@@ -283,7 +284,9 @@ private:
 
         for (tIndex k = 0; k < particleCount(); ++k) {
             const Vec2f& p = position(k);
-            const int i = static_cast<int>(p.x), j = static_cast<int>(p.y);
+            int i = static_cast<int>(p.x), j = static_cast<int>(p.y);
+            
+            
             const int indice = idx1d(i, j);
             pidx_in_grid[idx1d(i, j)].push_back(k);
         }
@@ -450,7 +453,8 @@ private:
                         const Vec2f xij = xi - xj;
                         const Real len_xij = xij.length();
                         if (len_xij > sr) continue;
-
+                        Vec2f dq = Vec2f(0.2, 0.2);
+                        Real scorr = -0.1 * pow(_kernel.w(xij), 4);
                         sum_grad_p += (_lambda[i]+ _lambda[j])*_kernel.grad_w(xij, len_xij);
                     }
                 }
@@ -511,7 +515,7 @@ private:
                 }
             }
 
-            _acc[i] -= _m0 * sum_grad_p;
+            _vel[i] -= _m0 * sum_grad_p * _dt;
         }
     }
     void applyViscousForce()
@@ -550,7 +554,7 @@ private:
                 }
             }
 
-            _acc[i] += 2.0 * _nu * sum_acc;
+            _vel[i] += 2.0 * _nu * sum_acc;
 
         }
     }
@@ -560,10 +564,11 @@ private:
 #pragma omp parallel for
         for (tIndex i = 0; i < particleCount(); ++i) {
             if (_type[i] == 1){
-                _vel[i] = (_pred_pos[i] - _pos[i]) / _dt / 30000;
+                _vel[i] = (_pred_pos[i] - _pos[i]) / _dt / 30000000;
             }
             else {
                 _vel[i] = Vec2f (0);
+                std::cout << i << std::endl;
             }
         }
     }
@@ -805,7 +810,7 @@ void initOpenGL()
 
 void init()
 {
-    gSolver.initScene(15, 40, 5, 10);
+    gSolver.initScene(30, 80, 4, 4);
 
     initGLFW();                   // Windowing system
     initOpenGL();
