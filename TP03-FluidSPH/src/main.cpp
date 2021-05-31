@@ -180,29 +180,29 @@ public:
             }
         }
 
-        // solid
-        //for (int j = 0; j < res_y; ++j) {
-        //    for (int i = 0; i < res_x; ++i) {
-        //        if (i == 0 || j == 0 || i == res_x - 1 || j == res_y - 1) {
-        //            _pos.push_back(Vec2f(i + 0.25, j + 0.25));
-        //            _pos.push_back(Vec2f(i + 0.75, j + 0.25));
-        //            _pos.push_back(Vec2f(i + 0.25, j + 0.75));
-        //            _pos.push_back(Vec2f(i + 0.75, j + 0.75));
-        //            _pos.push_back(Vec2f(i + 0.5, j + 0.5));
+         //solid
+        for (int j = 0; j < res_y; ++j) {
+            for (int i = 0; i < res_x; ++i) {
+                if (i == 0 || j == 0 || i == res_x - 1 || j == res_y - 1) {
+                    _pos.push_back(Vec2f(i + 0.25, j + 0.25));
+                    _pos.push_back(Vec2f(i + 0.75, j + 0.25));
+                    _pos.push_back(Vec2f(i + 0.25, j + 0.75));
+                    _pos.push_back(Vec2f(i + 0.75, j + 0.75));
+                    _pos.push_back(Vec2f(i + 0.5, j + 0.5));
 
-        //            _pred_pos.push_back(Vec2f(i + 0.25, j + 0.25));
-        //            _pred_pos.push_back(Vec2f(i + 0.75, j + 0.25));
-        //            _pred_pos.push_back(Vec2f(i + 0.25, j + 0.75));
-        //            _pred_pos.push_back(Vec2f(i + 0.75, j + 0.75));
-        //            _pred_pos.push_back(Vec2f(i + 0.5, j + 0.5));
-        //            _type.push_back(0);   // solid
-        //            _type.push_back(0);
-        //            _type.push_back(0);
-        //            _type.push_back(0);
-        //            _type.push_back(0);
-        //        }
-        //    }
-        //}
+                    _pred_pos.push_back(Vec2f(i + 0.25, j + 0.25));
+                    _pred_pos.push_back(Vec2f(i + 0.75, j + 0.25));
+                    _pred_pos.push_back(Vec2f(i + 0.25, j + 0.75));
+                    _pred_pos.push_back(Vec2f(i + 0.75, j + 0.75));
+                    _pred_pos.push_back(Vec2f(i + 0.5, j + 0.5));
+                    _type.push_back(0);   // solid
+                    _type.push_back(0);
+                    _type.push_back(0);
+                    _type.push_back(0);
+                    _type.push_back(0);
+                }
+            }
+        }
 
         // make sure for the other particle quantities
         _vel = std::vector<Vec2f>(_pos.size(), Vec2f(0, 0));
