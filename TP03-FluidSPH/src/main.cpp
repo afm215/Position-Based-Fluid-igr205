@@ -39,7 +39,7 @@
 #define M_PI 3.141592
 #endif
 
-#define NB_IT 5
+#define NB_IT 10
 
 
 #include "Vector.hpp"
@@ -136,7 +136,7 @@ public:
         _kernel(h), _nu(nu), _h(h), _d0(density),
         _g(g), _eta(eta), _gamma(gamma)
     {
-        _dt = 0.011;
+        _dt = 0.16;
         _m0 = 1;
         _c = std::fabs(_g.y) / _eta;
         _p0 = _d0 * _c * _c / _gamma;     // k of EOS
@@ -164,48 +164,48 @@ public:
             for (int i = 0; i < f_width; ++i) {
                 if (i == 0 || j == 0) continue;
                 // offset
-                int I = i + 25;
-                int J = j + 50;
-                /*_pos.push_back(Vec2f(I + 0.25, J + 0.25));
+                int I = i + 10;
+                int J = j + 20;
+                _pos.push_back(Vec2f(I + 0.25, J + 0.25));
                 _pos.push_back(Vec2f(I + 0.75, J + 0.25));
                 _pos.push_back(Vec2f(I + 0.25, J + 0.75));
-                _pos.push_back(Vec2f(I + 0.75, J + 0.75));*/
-                _pos.push_back(Vec2f(I + 0.5, J + 0.5));
-                /*_pred_pos.push_back(Vec2f(I + 0.25, J + 0.25));
+                _pos.push_back(Vec2f(I + 0.75, J + 0.75));
+                //_pos.push_back(Vec2f(I + 0.5, J + 0.5));
+                _pred_pos.push_back(Vec2f(I + 0.25, J + 0.25));
                 _pred_pos.push_back(Vec2f(I + 0.75, J + 0.25));
                 _pred_pos.push_back(Vec2f(I + 0.25, J + 0.75));
-                _pred_pos.push_back(Vec2f(I + 0.75, J + 0.75));*/
-                _pred_pos.push_back(Vec2f(I + 0.5, J + 0.5));
-               // _type.push_back(1);     // fluid
+                _pred_pos.push_back(Vec2f(I + 0.75, J + 0.75));
+                //_pred_pos.push_back(Vec2f(I + 0.5, J + 0.5));
+                _type.push_back(1);     // fluid
                 _type.push_back(1);
-                /*_type.push_back(1);
-                _type.push_back(1);*/
+                _type.push_back(1);
+                _type.push_back(1);
             }
         }
 
          //solid
-        for (int j = 0; j < res_y; ++j) {
-            for (int i = 0; i < res_x; ++i) {
-                if (i == 0 || j == 0 || i == res_x - 1 || j == res_y - 1) {
-                    _pos.push_back(Vec2f(i + 0.25, j + 0.25));
-                    _pos.push_back(Vec2f(i + 0.75, j + 0.25));
-                    _pos.push_back(Vec2f(i + 0.25, j + 0.75));
-                    _pos.push_back(Vec2f(i + 0.75, j + 0.75));
-                    _pos.push_back(Vec2f(i + 0.5, j + 0.5));
+        //for (int j = 0; j < res_y; ++j) {
+        //    for (int i = 0; i < res_x; ++i) {
+        //        if (i == 0 || j == 0 || i == res_x - 1 || j == res_y - 1) {
+        //            _pos.push_back(Vec2f(i + 0.25, j + 0.25));
+        //            _pos.push_back(Vec2f(i + 0.75, j + 0.25));
+        //            _pos.push_back(Vec2f(i + 0.25, j + 0.75));
+        //            _pos.push_back(Vec2f(i + 0.75, j + 0.75));
+        //            _pos.push_back(Vec2f(i + 0.5, j + 0.5));
 
-                    _pred_pos.push_back(Vec2f(i + 0.25, j + 0.25));
-                    _pred_pos.push_back(Vec2f(i + 0.75, j + 0.25));
-                    _pred_pos.push_back(Vec2f(i + 0.25, j + 0.75));
-                    _pred_pos.push_back(Vec2f(i + 0.75, j + 0.75));
-                    _pred_pos.push_back(Vec2f(i + 0.5, j + 0.5));
-                    _type.push_back(0);   // solid
-                    _type.push_back(0);
-                    _type.push_back(0);
-                    _type.push_back(0);
-                    _type.push_back(0);
-                }
-            }
-        }
+        //            _pred_pos.push_back(Vec2f(i + 0.25, j + 0.25));
+        //            _pred_pos.push_back(Vec2f(i + 0.75, j + 0.25));
+        //            _pred_pos.push_back(Vec2f(i + 0.25, j + 0.75));
+        //            _pred_pos.push_back(Vec2f(i + 0.75, j + 0.75));
+        //            _pred_pos.push_back(Vec2f(i + 0.5, j + 0.5));
+        //            _type.push_back(0);   // solid
+        //            _type.push_back(0);
+        //            _type.push_back(0);
+        //            _type.push_back(0);
+        //            _type.push_back(0);
+        //        }
+        //    }
+        //}
 
         // make sure for the other particle quantities
         _vel = std::vector<Vec2f>(_pos.size(), Vec2f(0, 0));
@@ -365,7 +365,9 @@ private:
 
                     // each particle in nearby cells
                     for (size_t ni = 0; ni < _pidxInGrid[gidx].size(); ++ni) {
-                        const Vec2f& xj = position(_pidxInGrid[gidx][ni]);
+                        tIndex j = _pidxInGrid[gidx][ni];
+                        if (i == j) continue;
+                        const Vec2f& xj = position(j);
                         const Vec2f xij = xi - xj;
                         
                         const Real len_xij = xij.length();
@@ -462,6 +464,7 @@ private:
                 for (size_t ni = 0; ni < _pidxInGrid[gidx].size(); ++ni) {
 
                     const tIndex j = _pidxInGrid[gidx][ni];
+                    if (j == i) continue;
                     const Vec2f& xj = position(j);
                     const Vec2f xij = xi - xj;
                     const Real len_xij = xij.length();
@@ -518,7 +521,7 @@ private:
             Vec2f w_i = compute_w_i(i);
             Vec2f N = ComputeEta(i, w_i);
             N = N.normalize();
-            _vel[i] += _dt /  _m0 * N.crossProduct(w_i);
+            _vel[i] += _dt /  _m0 * SPH_EPSILON * N.crossProduct(w_i);
             assert(!isnan(_vel[i].x) && !isnan(_vel[i].y));
         }
     }
@@ -553,13 +556,16 @@ private:
                     const tIndex gidx = idx1d(gi, gj);
 
                     for (size_t ni = 0; ni < _pidxInGrid[gidx].size(); ++ni) {
+
                         Vec2f gradCi = computeGradCi(i, _pidxInGrid[gidx][ni]);
+                        tIndex j = _pidxInGrid[gidx][ni];
                         /*auto j = _pidxInGrid[gidx][ni];
                         Vec2f xj = position(j);
                         Vec2f xij = p_i - xj;
                         Vec2f gradCi = _kernel.grad_w(xij) / _d0;
                         
                         grad_sum += gradCi;*/
+                        if (i == j) continue;
                         sumnormgradCi += gradCi.dotProduct(gradCi);
 
                     }
@@ -577,6 +583,7 @@ private:
     {
         
         const Real sr = _kernel.supportRadius();
+        Real dq = 0.3 ;
 
 #pragma omp parallel for
         for (tIndex i = 0; i < particleCount(); ++i) {
@@ -584,7 +591,7 @@ private:
             Vec2f sum_grad_p(0, 0);
             const Vec2f& xi = position(i);
 
-            Real dq = 0.3;
+            
 
 
             const int gi_from = static_cast<int>(xi.x - sr);
@@ -604,7 +611,7 @@ private:
                         const Vec2f& xj = position(j);
                         const Vec2f xij = xi - xj;
                        
-                        Real scorr = -0.001f * pow(_kernel.w(xij) / _kernel.w(dq), 4);
+                        Real scorr =  -0.001f * pow(_kernel.w(xij) / _kernel.w(dq), 4);
                         sum_grad_p += (_lambda[i]+ _lambda[j] + scorr)*_kernel.grad_w(xij);
                     }
                 }
@@ -620,12 +627,10 @@ private:
         for (tIndex i = 0; i < particleCount(); ++i) {
 
             if (_type[i] == 1) {
-                _acc[i] = _g;
-                _vel[i] += _dt * _acc[i];
+                _vel[i] += _dt * _g;
                 //assert(!isnan(_vel[i].x) && !isnan(_vel[i].y));
             }
             else {
-                _acc[i] = Vec2f(0);
                 _vel[i] = Vec2f(0);
             }
             
@@ -799,7 +804,7 @@ private:
     Real _gamma;                  // EOS power factor
 };
 
-SphSolver gSolver(80, 1.2, 1, Vec2f(0, -9.8), 0.01, 7.0);
+SphSolver gSolver(80, 1.2, 3, Vec2f(0, -9.8), 0.01, 7.0);
 
 void printHelp()
 {
@@ -912,7 +917,7 @@ void initOpenGL()
 
 void init()
 {
-    gSolver.initScene(60, 80, 25, 25);
+    gSolver.initScene(30, 40, 10, 10);
 
     initGLFW();                   // Windowing system
     initOpenGL();
@@ -1015,14 +1020,14 @@ void update(const float currentTime)
         clock_gettime(CLOCK_REALTIME, &timer);
         double end = timer.tv_nsec * pow(10, -9) + timer.tv_sec;
         std::cout << "Delay of one update" << end - start << std::endl;
-        _dt = end - start;
+        //_dt = end - start;
         
     }
 }
 
 int main(int argc, char** argv)
 {
-    std::cout << Poly6Value(0.5, 1.8208) << std::endl;
+
     init();
     while (!glfwWindowShouldClose(gWindow)) {
         update(static_cast<float>(glfwGetTime()));
