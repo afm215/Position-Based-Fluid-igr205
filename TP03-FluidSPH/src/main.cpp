@@ -39,7 +39,8 @@
 #define M_PI 3.141592
 #endif
 
-#define NB_IT 10
+#define NB_IT 5
+
 
 #include "Vector.hpp"
 
@@ -135,7 +136,7 @@ public:
         _kernel(h), _nu(nu), _h(h), _d0(density),
         _g(g), _eta(eta), _gamma(gamma)
     {
-        _dt = 0.2;
+        _dt = 0.011;
         _m0 = 1;
         _c = std::fabs(_g.y) / _eta;
         _p0 = _d0 * _c * _c / _gamma;     // k of EOS
@@ -163,20 +164,22 @@ public:
             for (int i = 0; i < f_width; ++i) {
                 if (i == 0 || j == 0) continue;
                 // offset
-                int I = i + 5;
-                int J = j + 5;
-                _pos.push_back(Vec2f(I + 0.25, J + 0.25));
+                int I = i + 25;
+                int J = j + 50;
+                /*_pos.push_back(Vec2f(I + 0.25, J + 0.25));
                 _pos.push_back(Vec2f(I + 0.75, J + 0.25));
                 _pos.push_back(Vec2f(I + 0.25, J + 0.75));
-                _pos.push_back(Vec2f(I + 0.75, J + 0.75));
-                _pred_pos.push_back(Vec2f(I + 0.25, J + 0.25));
+                _pos.push_back(Vec2f(I + 0.75, J + 0.75));*/
+                _pos.push_back(Vec2f(I + 0.5, J + 0.5));
+                /*_pred_pos.push_back(Vec2f(I + 0.25, J + 0.25));
                 _pred_pos.push_back(Vec2f(I + 0.75, J + 0.25));
                 _pred_pos.push_back(Vec2f(I + 0.25, J + 0.75));
-                _pred_pos.push_back(Vec2f(I + 0.75, J + 0.75));
-                _type.push_back(1);     // fluid
+                _pred_pos.push_back(Vec2f(I + 0.75, J + 0.75));*/
+                _pred_pos.push_back(Vec2f(I + 0.5, J + 0.5));
+               // _type.push_back(1);     // fluid
                 _type.push_back(1);
-                _type.push_back(1);
-                _type.push_back(1);
+                /*_type.push_back(1);
+                _type.push_back(1);*/
             }
         }
 
@@ -250,7 +253,7 @@ public:
         }
         //update the velocities v_i = p_i* - p_i 
         updateVelocity();
-        //computeVorticity();
+        computeVorticity();
         applyViscousForce();
         // use the newly computed velocities to compute vorticity confinement and XSPH viscosity TO DO !!!
         //applyViscousForce();
@@ -335,9 +338,9 @@ private:
             {
                 Vec2f pos = _pred_pos[i];
                 if (pos.x < 1) { _pred_pos[i].x = 1; /* _vel[i].x = 0*/  -_vel[i].x; }
-                if (pos.x > 29) { _pred_pos[i].x = 29; /*_vel[i].x = 0*/  -_vel[i].x; }
+                if (pos.x > resX() - 1) { _pred_pos[i].x = resX()-1; /*_vel[i].x = 0*/  -_vel[i].x; }
                 if (pos.y < 1) { _pred_pos[i].y = 1; /*_vel[i].y = 0*/ _vel[i].y = -_vel[i].y; }
-                if (pos.y > 39) { _pred_pos[i].y = 39; /*_vel[i].y = 0*/_vel[i].y = -_vel[i].y; }
+                if (pos.y > resY() - 1 ) { _pred_pos[i].y = resY() - 1; /*_vel[i].y = 0*/_vel[i].y = -_vel[i].y; }
             }
         }
     }
@@ -515,7 +518,7 @@ private:
             Vec2f w_i = compute_w_i(i);
             Vec2f N = ComputeEta(i, w_i);
             N = N.normalize();
-            _vel[i] += _dt *  _m0 *  1.0f * N.crossProduct(w_i);
+            _vel[i] += _dt /  _m0 * N.crossProduct(w_i);
             assert(!isnan(_vel[i].x) && !isnan(_vel[i].y));
         }
     }
@@ -619,7 +622,7 @@ private:
             if (_type[i] == 1) {
                 _acc[i] = _g;
                 _vel[i] += _dt * _acc[i];
-                assert(!isnan(_vel[i].x) && !isnan(_vel[i].y));
+                //assert(!isnan(_vel[i].x) && !isnan(_vel[i].y));
             }
             else {
                 _acc[i] = Vec2f(0);
@@ -633,7 +636,7 @@ private:
     void applyViscousForce()
     {
         const Real sr = _kernel.supportRadius();
-        Real c = 0.0001;
+        Real c = 0.001;
 
 #pragma omp parallel for
         for (tIndex i = 0; i < particleCount(); ++i) {
@@ -656,7 +659,7 @@ private:
                         if (i == j) continue;
                         const Vec2f& xj = position(j);
                         const Vec2f xij = xi - xj;
-                        const Vec2f vij = _vel[i] - _vel[j];
+                        const Vec2f vij = _vel[j] - _vel[i];
                         const Real len_xij = xij.length();
                         if (len_xij > sr) continue;
 
@@ -668,7 +671,7 @@ private:
             }
 
             _vel[i] += c * sum_acc;
-            assert(!isnan(_vel[i].x) && !isnan(_vel[i].y));
+            //assert(!isnan(_vel[i].x) && !isnan(_vel[i].y));
 
         }
     }
@@ -796,7 +799,7 @@ private:
     Real _gamma;                  // EOS power factor
 };
 
-SphSolver gSolver(0.08, 1.2, 1, Vec2f(0, -9.8), 0.01, 7.0);
+SphSolver gSolver(80, 1.2, 1, Vec2f(0, -9.8), 0.01, 7.0);
 
 void printHelp()
 {
@@ -909,7 +912,7 @@ void initOpenGL()
 
 void init()
 {
-    gSolver.initScene(30, 40, 10, 10);
+    gSolver.initScene(60, 80, 25, 25);
 
     initGLFW();                   // Windowing system
     initOpenGL();
@@ -1011,13 +1014,15 @@ void update(const float currentTime)
         for (int i = 0; i < 1; ++i) gSolver.update();
         clock_gettime(CLOCK_REALTIME, &timer);
         double end = timer.tv_nsec * pow(10, -9) + timer.tv_sec;
-        //std::cout << "Delay of one update" << end - start << std::endl;
+        std::cout << "Delay of one update" << end - start << std::endl;
         _dt = end - start;
+        
     }
 }
 
 int main(int argc, char** argv)
 {
+    std::cout << Poly6Value(0.5, 1.8208) << std::endl;
     init();
     while (!glfwWindowShouldClose(gWindow)) {
         update(static_cast<float>(glfwGetTime()));
