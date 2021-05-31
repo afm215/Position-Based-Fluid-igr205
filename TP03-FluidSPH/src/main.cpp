@@ -31,6 +31,7 @@
 #include <iomanip>
 #include <vector>
 #include <cmath>
+#include <omp.h>
 
 #include "kernel.hpp"
 
@@ -38,7 +39,7 @@
 #define M_PI 3.141592
 #endif
 
-#define NB_IT 3
+#define NB_IT 10
 
 #include "Vector.hpp"
 
@@ -180,30 +181,36 @@ public:
         }
 
         // solid
-        for (int j = 0; j < res_y; ++j) {
-            for (int i = 0; i < res_x; ++i) {
-                if (i == 0 || j == 0 || i == res_x - 1 || j == res_y - 1) {
-                    _pos.push_back(Vec2f(i + 0.25, j + 0.25));
-                    _pos.push_back(Vec2f(i + 0.75, j + 0.25));
-                    _pos.push_back(Vec2f(i + 0.25, j + 0.75));
-                    _pos.push_back(Vec2f(i + 0.75, j + 0.75));
-                    _pred_pos.push_back(Vec2f(i + 0.25, j + 0.25));
-                    _pred_pos.push_back(Vec2f(i + 0.75, j + 0.25));
-                    _pred_pos.push_back(Vec2f(i + 0.25, j + 0.75));
-                    _pred_pos.push_back(Vec2f(i + 0.75, j + 0.75));
-                    _type.push_back(0);   // solid
-                    _type.push_back(0);
-                    _type.push_back(0);
-                    _type.push_back(0);
-                }
-            }
-        }
+        //for (int j = 0; j < res_y; ++j) {
+        //    for (int i = 0; i < res_x; ++i) {
+        //        if (i == 0 || j == 0 || i == res_x - 1 || j == res_y - 1) {
+        //            _pos.push_back(Vec2f(i + 0.25, j + 0.25));
+        //            _pos.push_back(Vec2f(i + 0.75, j + 0.25));
+        //            _pos.push_back(Vec2f(i + 0.25, j + 0.75));
+        //            _pos.push_back(Vec2f(i + 0.75, j + 0.75));
+        //            _pos.push_back(Vec2f(i + 0.5, j + 0.5));
+
+        //            _pred_pos.push_back(Vec2f(i + 0.25, j + 0.25));
+        //            _pred_pos.push_back(Vec2f(i + 0.75, j + 0.25));
+        //            _pred_pos.push_back(Vec2f(i + 0.25, j + 0.75));
+        //            _pred_pos.push_back(Vec2f(i + 0.75, j + 0.75));
+        //            _pred_pos.push_back(Vec2f(i + 0.5, j + 0.5));
+        //            _type.push_back(0);   // solid
+        //            _type.push_back(0);
+        //            _type.push_back(0);
+        //            _type.push_back(0);
+        //            _type.push_back(0);
+        //        }
+        //    }
+        //}
 
         // make sure for the other particle quantities
         _vel = std::vector<Vec2f>(_pos.size(), Vec2f(0, 0));
         _acc = std::vector<Vec2f>(_pos.size(), Vec2f(0, 0));
         _p = std::vector<Real>(_pos.size(), 0);
         _d = std::vector<Real>(_pos.size(), 0);
+        _dp = std::vector<Vec2f>(_pos.size(), Vec2f(0, 0));
+        _lambda = std::vector<Real>(_pos.size(), 0);
 
         _col = std::vector<float>(_pos.size() * 4, 1.0); // RGBA
         _vln = std::vector<float>(_pos.size() * 4, 0.0); // GL_LINES
@@ -516,14 +523,14 @@ private:
 
     void computeLambda()
     {
-        _lambda.clear();
         const Real sr = _kernel.supportRadius();
 #pragma omp parallel for
         for (tIndex i = 0; i < particleCount(); ++i) {
 
 
             Real c_i = _d[i] / _d0 - 1;
-            _lambda.push_back(- c_i);
+            _lambda[i] = -c_i;
+            
 
             Real sumnormgradCi = 0;
             Vec2f grad_sum = Vec2f(0);
@@ -565,7 +572,7 @@ private:
 
     void computeDp()
     {
-        _dp.clear();
+        
         const Real sr = _kernel.supportRadius();
 
 #pragma omp parallel for
@@ -600,7 +607,7 @@ private:
                 }
             }
 
-            _dp.push_back(sum_grad_p / _d0);   // TODO pas sur du tout changmeent pour debug 
+            _dp[i] = sum_grad_p / _d0;   // TODO pas sur du tout changmeent pour debug 
         }
     }
 
@@ -673,7 +680,7 @@ private:
             if (_type[i] == 1){
                 Vec2f spread = _pred_pos[i] - _pos[i];
                 _vel[i] = (_pred_pos[i] - _pos[i]) / _dt ;
-                assert(!isnan(_vel[i].x) && !isnan(_vel[i].y));
+                //assert(!isnan(_vel[i].x) && !isnan(_vel[i].y));
                 
             }
             else {
@@ -880,6 +887,10 @@ void initGLFW()
 
     std::cout << "Window created: " <<
         gWindowWidth << ", " << gWindowHeight << std::endl;
+#pragma omp parallel
+    {
+        std::cout << "test" << std::endl;;
+    }
 }
 
 void clear();
@@ -898,7 +909,7 @@ void initOpenGL()
 
 void init()
 {
-    gSolver.initScene(30, 40, 8, 8);
+    gSolver.initScene(30, 40, 10, 10);
 
     initGLFW();                   // Windowing system
     initOpenGL();
