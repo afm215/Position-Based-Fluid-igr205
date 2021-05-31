@@ -898,7 +898,7 @@ void initOpenGL()
 
 void init()
 {
-    gSolver.initScene(30, 40, 12, 12);
+    gSolver.initScene(30, 40, 8, 8);
 
     initGLFW();                   // Windowing system
     initOpenGL();
