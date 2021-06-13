@@ -16,10 +16,9 @@
 // ----------------------------------------------------------------------------
 #define CLOCK_REALTIME 0
 #define NOMINMAX //reset namespace of windows.h
-#include <Windows.h>
 #include <assert.h> 
 
-
+#include "CLSrc/gpuenv.h"
 
 
 #define SPH_EPSILON 200.0f
@@ -28,13 +27,7 @@
 #define _USE_MATH_DEFINES
 
 #include <GLFW/glfw3.h>
-#include <time.h>
-#include <iostream>
-#include <sstream>
-#include <iomanip>
-#include <vector>
-#include <cmath>
-#include <omp.h>
+
 
 #include "kernel.hpp"
 
@@ -61,6 +54,9 @@ int clock_gettime(int, struct timespec* spec)      //C-file part
     spec->tv_nsec = wintime % 10000000i64 * 100;      //nano-seconds
     return 0;
 }
+
+
+GpuEnvironnment env; 
 
 // window parameters
 GLFWwindow* gWindow = nullptr;
@@ -1034,6 +1030,39 @@ void update(const float currentTime)
 int main(int argc, char** argv)
 {
     cl_int test;
+
+    /*********************************************Context GPU INIT *****************************************/
+    std::cout << "running on GPU" << std::endl;
+    std::cout << "define CPU MACRO in the source code of videofilter.cpp to run on CPU" << std::endl;
+    
+    char char_buffer[STRING_BUFFER_LEN];
+    cl_platform_id platform;
+    cl_device_id device;
+
+    unsigned char** opencl_program = read_file("operation.cl");
+
+    int status;
+
+    clGetPlatformIDs(1, &platform, NULL);
+    clGetPlatformInfo(platform, CL_PLATFORM_NAME, STRING_BUFFER_LEN, char_buffer, NULL);
+    cl_context_properties context_properties[] = { CL_CONTEXT_PLATFORM, (cl_context_properties)platform, 0 }; //makes it run on windows
+
+    context_properties[1] = (cl_context_properties)platform;
+    clGetDeviceIDs(platform, CL_DEVICE_TYPE_GPU, 1, &device, NULL);
+    env.context = clCreateContext(context_properties, 1, &device, NULL, NULL, NULL);
+    env.queue = clCreateCommandQueue(env.context, device, 0, NULL);
+
+    env.program = clCreateProgramWithSource(env.context, 1, (const char**)opencl_program, NULL, NULL);
+    if (env.program == NULL)
+    {
+        printf("Program creation failed\n");
+        return 1;
+    }
+    int success = clBuildProgram(env.program, 0, NULL, NULL, NULL, NULL);
+    if (success != CL_SUCCESS) print_clbuild_errors(env.program, device);
+    env.kernel = clCreateKernel(env.program, "resolutionsansflou", NULL);
+    /*************************************END OF GPU INIT ****************************************************/
+
 
     init();
     while (!glfwWindowShouldClose(gWindow)) {
