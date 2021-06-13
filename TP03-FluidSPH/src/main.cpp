@@ -19,6 +19,9 @@
 #include <Windows.h>
 #include <assert.h> 
 
+
+
+
 #define SPH_EPSILON 200.0f
 
 
@@ -43,6 +46,9 @@
 
 
 #include "Vector.hpp"
+
+#include <CL/cl.h>
+#include <CL/cl_ext.h>
 
 double inf = std::numeric_limits<double>::infinity();
 
@@ -1027,6 +1033,7 @@ void update(const float currentTime)
 
 int main(int argc, char** argv)
 {
+    cl_int test;
 
     init();
     while (!glfwWindowShouldClose(gWindow)) {
