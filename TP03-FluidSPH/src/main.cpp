@@ -38,7 +38,7 @@
 #define M_PI 3.141592
 #endif
 
-#define NB_IT 3
+#define NB_IT 5
 
 #include "Vector.hpp"
 
@@ -163,6 +163,7 @@ public:
         _b = 0.5 * _h;
         _t = static_cast<Real>(res_y) - 0.5 * _h;
 
+
         // sample a fluid mass
         for (int j = 0; j < f_height; ++j) {
             for (int i = 0; i < f_width; ++i) {
@@ -185,6 +186,26 @@ public:
             }
         }
 
+        /*
+        for (int j = 0; j < res_y; ++j) {
+            for (int i = 0; i < res_x; ++i) {
+                if (i == 0 || j == 0 || i == res_x - 1 || j == res_y - 1) {
+                    _pos.push_back(Vec2f(i + 0.25, j + 0.25));
+                    _pos.push_back(Vec2f(i + 0.75, j + 0.25));
+                    _pos.push_back(Vec2f(i + 0.25, j + 0.75));
+                    _pos.push_back(Vec2f(i + 0.75, j + 0.75));
+                    _pred_pos.push_back(Vec2f(i + 0.25, j + 0.25));
+                    _pred_pos.push_back(Vec2f(i + 0.75, j + 0.25));
+                    _pred_pos.push_back(Vec2f(i + 0.25, j + 0.75));
+                    _pred_pos.push_back(Vec2f(i + 0.75, j + 0.75));
+                    _type.push_back(0);   // solid
+                    _type.push_back(0);
+                    _type.push_back(0);
+                    _type.push_back(0);
+                }
+            }
+        }
+        */
         
         //solid bars
         /*
@@ -252,7 +273,6 @@ public:
 
         while (i < NB_IT)
         {
-
             //compute lambda_i 
             //computeLambda use the comutegradCi function wich use the density of the paricles 
             computeDensity();
@@ -261,8 +281,7 @@ public:
             computeDp();
             //update the position p_i* = p_i* + dp_i
             updatePrediction();
-            //applyPhysicalConstraints();
-
+            applyPhysicalConstraints();
             i++;
         }
         //update the velocities v_i = p_i* - p_i 
@@ -275,8 +294,7 @@ public:
         updatePosition();
 
         updateColor();
-        /*if (gShowVel) updateVelLine();*/
-
+        if (gShowVel) updateVelLine();
 
         /*
         * // PSEUDO CODE :
@@ -326,6 +344,18 @@ public:
     }
 
 private:
+
+    void updateVelLine()
+    {
+        for (tIndex i = 0; i < particleCount(); ++i) {
+            _vln[i * 4 + 0] = _pos[i].x;
+            _vln[i * 4 + 1] = _pos[i].y;
+            _vln[i * 4 + 2] = _pos[i].x + _vel[i].x;
+            _vln[i * 4 + 3] = _pos[i].y + _vel[i].y;
+        }
+    }
+
+
     void buildNeighbor()
     {
         // particle indices in each cell
@@ -334,7 +364,6 @@ private:
         for (tIndex k = 0; k < particleCount(); ++k) {
             const Vec2f& p = position(k);
             int i = static_cast<int>(p.x), j = static_cast<int>(p.y);
-
 
             const int indice = idx1d(i, j);
             pidx_in_grid[idx1d(i, j)].push_back(k);
@@ -350,11 +379,13 @@ private:
         {
             if (_type[i] == 1)
             {
+                //float randF = (rand()+1) / 10000;
+                float rebound = 0.9;
                 Vec2f pos = _pred_pos[i];
-                if (pos.x < MIN_X) { _pred_pos[i].x = MIN_X; -_vel[i].x; }
-                if (pos.x > WALL_X) { _pred_pos[i].x = WALL_X; -_vel[i].x; }
-                if (pos.y < MIN_Y) { _pred_pos[i].y = MIN_Y; -_vel[i].y; }
-                if (pos.y > MAX_Y) { _pred_pos[i].y = MAX_Y; -_vel[i].y; }
+                if (pos.x < MIN_X) { _pred_pos[i].x = MIN_X + abs(MIN_X -_pred_pos[i].x) ;}
+                if (pos.x > WALL_X) { _pred_pos[i].x = WALL_X - abs(WALL_X - _pred_pos[i].x);}
+                if (pos.y < MIN_Y) { _pred_pos[i].y = MIN_Y + abs(MIN_Y - _pred_pos[i].y);}
+                if (pos.y > MAX_Y) { _pred_pos[i].y = MAX_Y - abs(MAX_Y - _pred_pos[i].y);}
             }
         }
     }
@@ -709,8 +740,6 @@ private:
     void updatePosition()
     {
 
-        int solverIteration = 10;
-
 #pragma omp parallel for
         for (tIndex i = 0; i < particleCount(); ++i) {
             if (_type[i] != 1) continue;
@@ -735,7 +764,6 @@ private:
             _pred_pos[i] += _dp[i];   // simple forward Euler
         }
     }
-
 
     void updateColor()
     {
@@ -1019,8 +1047,7 @@ void update(const float currentTime)
         timespec timer;
         clock_gettime(CLOCK_REALTIME, &timer);
         double start = timer.tv_nsec * pow(10, -9) + timer.tv_sec;
-        // solve 10 steps
-        for (int i = 0; i < 1; ++i) gSolver.update();
+        gSolver.update();
         clock_gettime(CLOCK_REALTIME, &timer);
         double end = timer.tv_nsec * pow(10, -9) + timer.tv_sec;
         //std::cout << "Delay of one update" << end - start << std::endl;
