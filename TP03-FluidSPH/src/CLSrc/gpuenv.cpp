@@ -77,11 +77,11 @@ const char* getErrorString(cl_int error)
 }
 void print_clbuild_errors(cl_program program, cl_device_id device)
 {
-	cout << "Program Build failed\n";
+	std::cout << "Program Build failed\n";
 	size_t length;
 	char buffer[2048];
 	clGetProgramBuildInfo(program, device, CL_PROGRAM_BUILD_LOG, sizeof(buffer), buffer, &length);
-	cout << "--- Build log ---\n " << buffer << endl;
+	std::cout << "--- Build log ---\n " << buffer << std::endl;
 	exit(1);
 }
 unsigned char** read_file(const char* name) {

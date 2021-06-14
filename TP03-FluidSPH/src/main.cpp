@@ -45,16 +45,6 @@
 
 double inf = std::numeric_limits<double>::infinity();
 
-//function implementation coming from here https://exceptionshub.com/porting-clock_gettime-to-windows.html
-int clock_gettime(int, struct timespec* spec)      //C-file part
-{
-    __int64 wintime; GetSystemTimeAsFileTime((FILETIME*)&wintime);
-    wintime -= 116444736000000000i64;  //1jan1601 to 1jan1970
-    spec->tv_sec = wintime / 10000000i64;           //seconds
-    spec->tv_nsec = wintime % 10000000i64 * 100;      //nano-seconds
-    return 0;
-}
-
 
 GpuEnvironnment env; 
 
@@ -1039,13 +1029,15 @@ int main(int argc, char** argv)
     cl_platform_id platform;
     cl_device_id device;
 
-    unsigned char** opencl_program = read_file("operation.cl");
-
+   // unsigned char** opencl_program = read_file("operation.cl");
+   
     int status;
 
     clGetPlatformIDs(1, &platform, NULL);
     clGetPlatformInfo(platform, CL_PLATFORM_NAME, STRING_BUFFER_LEN, char_buffer, NULL);
+    std::cout << "NAME OF PLATEFORM" << std::endl<<char_buffer << std::endl;
     cl_context_properties context_properties[] = { CL_CONTEXT_PLATFORM, (cl_context_properties)platform, 0 }; //makes it run on windows
+    unsigned char** opencl_program = read_file("operation.cl");
 
     context_properties[1] = (cl_context_properties)platform;
     clGetDeviceIDs(platform, CL_DEVICE_TYPE_GPU, 1, &device, NULL);

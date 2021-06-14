@@ -16,8 +16,7 @@
 
 #include <fstream>
 
-#include <CL/cl.h>
-#include <CL/cl_ext.h>
+#include "CL/opencl.h"
 
 #ifdef _WIN32
 #define CLOCK_REALTIME 0
