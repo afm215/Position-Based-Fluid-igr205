@@ -248,7 +248,7 @@ public:
         computeVorticity();
         applyViscousForce();
         // use the newly computed velocities to compute vorticity confinement and XSPH viscosity TO DO !!!
-        //applyViscousForce();
+    
         //modify the position p_i = p_i *
         updatePosition();
 
@@ -339,6 +339,44 @@ private:
 
     void computeDensity()
     {
+        tIndex test = 0;
+        int yo = test;
+        int  index_size = _pidxInGrid.size();
+        std::vector<int> indexes;
+        std::vector<int> flattenN;
+        int end_index = 0;
+        for (int i = 0; i < index_size; i ++) {
+            end_index += _pidxInGrid[i].size();
+            indexes.push_back(end_index);
+            for (int j = 0; j < indexes[i]; j++) {
+                flattenN.push_back(_pidxInGrid[i][j]);
+
+            }
+        }
+
+        int* cl_flatten = flattenN.data();
+       
+        for (int i = 0; i < index_size; i++) {
+            for (int j = 0; j < _pidxInGrid[i].size(); j++) {
+                if (i == 0)
+                {
+                    std::cout << flattenN[j] << std::endl;
+                }
+                else {
+                    std::cout << flattenN[indexes[i - 1] + j] << std::endl; 
+                    std::cout << cl_flatten[indexes[i - 1] + j] << std::endl;
+                    assert(flattenN[indexes[i - 1] + j] == _pidxInGrid[i][j]);
+                }
+                
+
+            }
+        }
+
+
+
+
+
+
         const Real sr = _kernel.supportRadius();
         int nb_null = 0;
 #pragma omp parallel for
@@ -1022,41 +1060,42 @@ int main(int argc, char** argv)
     cl_int test;
 
     /*********************************************Context GPU INIT *****************************************/
-    std::cout << "running on GPU" << std::endl;
-    std::cout << "define CPU MACRO in the source code of videofilter.cpp to run on CPU" << std::endl;
-    
-    char char_buffer[STRING_BUFFER_LEN];
-    cl_platform_id platform;
-    cl_device_id device;
+   // std::cout << "running on GPU" << std::endl;
+   // std::cout << "define CPU MACRO in the source code of videofilter.cpp to run on CPU" << std::endl;
+   // 
+   // char char_buffer[STRING_BUFFER_LEN];
+   // cl_platform_id platform;
+   // cl_device_id device;
 
+   //// unsigned char** opencl_program = read_file("operation.cl");
+   //
+   // int status;
+
+   // clGetPlatformIDs(1, &platform, NULL);
+   // clGetPlatformInfo(platform, CL_PLATFORM_NAME, STRING_BUFFER_LEN, char_buffer, NULL);
+   // std::cout << "NAME OF PLATEFORM" << std::endl<<char_buffer << std::endl;
+   // cl_context_properties context_properties[] = { CL_CONTEXT_PLATFORM, (cl_context_properties)platform, 0 }; //makes it run on windows
    // unsigned char** opencl_program = read_file("operation.cl");
-   
-    int status;
 
-    clGetPlatformIDs(1, &platform, NULL);
-    clGetPlatformInfo(platform, CL_PLATFORM_NAME, STRING_BUFFER_LEN, char_buffer, NULL);
-    std::cout << "NAME OF PLATEFORM" << std::endl<<char_buffer << std::endl;
-    cl_context_properties context_properties[] = { CL_CONTEXT_PLATFORM, (cl_context_properties)platform, 0 }; //makes it run on windows
-    unsigned char** opencl_program = read_file("operation.cl");
+   // context_properties[1] = (cl_context_properties)platform;
+   // clGetDeviceIDs(platform, CL_DEVICE_TYPE_GPU, 1, &device, NULL);
+   // env.context = clCreateContext(context_properties, 1, &device, NULL, NULL, NULL);
+   // env.queue = clCreateCommandQueue(env.context, device, 0, NULL);
 
-    context_properties[1] = (cl_context_properties)platform;
-    clGetDeviceIDs(platform, CL_DEVICE_TYPE_GPU, 1, &device, NULL);
-    env.context = clCreateContext(context_properties, 1, &device, NULL, NULL, NULL);
-    env.queue = clCreateCommandQueue(env.context, device, 0, NULL);
-
-    env.program = clCreateProgramWithSource(env.context, 1, (const char**)opencl_program, NULL, NULL);
-    if (env.program == NULL)
-    {
-        printf("Program creation failed\n");
-        return 1;
-    }
-    int success = clBuildProgram(env.program, 0, NULL, NULL, NULL, NULL);
-    if (success != CL_SUCCESS) print_clbuild_errors(env.program, device);
-    env.kernel = clCreateKernel(env.program, "resolutionsansflou", NULL);
+   // env.program = clCreateProgramWithSource(env.context, 1, (const char**)opencl_program, NULL, NULL);
+   // if (env.program == NULL)
+   // {
+   //     printf("Program creation failed\n");
+   //     return 1;
+   // }
+   // int success = clBuildProgram(env.program, 0, NULL, NULL, NULL, NULL);
+   // if (success != CL_SUCCESS) print_clbuild_errors(env.program, device);
+   // env.kernel = clCreateKernel(env.program, "resolutionsansflou", NULL);
     /*************************************END OF GPU INIT ****************************************************/
 
 
     init();
+   
     while (!glfwWindowShouldClose(gWindow)) {
         update(static_cast<float>(glfwGetTime()));
         render();
