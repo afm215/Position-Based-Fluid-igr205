@@ -59,6 +59,12 @@ GLFWwindow* gWindow = nullptr;
 int gWindowWidth = 1024;
 int gWindowHeight = 768;
 
+float MAX_X = 30;
+float MAX_Y = 30;
+float MIN_X = 1;
+float MIN_Y = 1;
+float WALL_X = MAX_X;
+
 // timer
 float gAppTimer = 0.0;
 float gAppTimerLastClockTime;
@@ -67,7 +73,7 @@ bool gAppTimerStoppedP = true;
 // global options
 bool gPause = true;
 bool gSaveFile = false;
-bool gShowGrid = true;
+bool gShowGrid = false;
 bool gShowVel = false;
 int gSavedCnt = 0;
 
@@ -163,7 +169,7 @@ public:
                 if (i == 0 || j == 0) continue;
                 // offset
                 int I = i + 10;
-                int J = j + 7;
+                int J = j + 1;
                 _pos.push_back(Vec2f(I + 0.25, J + 0.25));
                 _pos.push_back(Vec2f(I + 0.75, J + 0.25));
                 _pos.push_back(Vec2f(I + 0.25, J + 0.75));
@@ -179,26 +185,9 @@ public:
             }
         }
 
-        // solid borders
-        for (int j = 0; j < res_y; ++j) {
-            for (int i = 0; i < res_x; ++i) {
-                if (i == 0 || j == 0 || i == res_x - 1 || j == res_y - 1) {
-                    _pos.push_back(Vec2f(i + 0.25, j + 0.25));
-                    _pos.push_back(Vec2f(i + 0.75, j + 0.25));
-                    _pos.push_back(Vec2f(i + 0.25, j + 0.75));
-                    _pos.push_back(Vec2f(i + 0.75, j + 0.75));
-                    _pred_pos.push_back(Vec2f(i + 0.25, j + 0.25));
-                    _pred_pos.push_back(Vec2f(i + 0.75, j + 0.25));
-                    _pred_pos.push_back(Vec2f(i + 0.25, j + 0.75));
-                    _pred_pos.push_back(Vec2f(i + 0.75, j + 0.75));
-                    _type.push_back(0);   // solid
-                    _type.push_back(0);
-                    _type.push_back(0);
-                    _type.push_back(0);
-                }
-            }
-        }
+        
         //solid bars
+        /*
         int br=0;
         int j = 7;
         for (int i = 8; i <= 22; ++i) {
@@ -220,6 +209,7 @@ public:
             _type.push_back(0);
             if (br) break;
         }
+        */
 
         // make sure for the other particle quantities
         _vel = std::vector<Vec2f>(_pos.size(), Vec2f(0, 0));
@@ -236,6 +226,18 @@ public:
     void update()
     {
         std::cout << '.' << std::flush;
+
+        /*
+        _pos.push_back(Vec2f(10, 10));
+        _pred_pos.push_back(Vec2f(10, 10));
+        _type.push_back(1);
+        _vel.push_back(Vec2f(0, 0));
+        _acc.push_back(Vec2f(0, 0));
+        _p.push_back(0);
+        _d.push_back(0);
+        _col.push_back(0); // RGBA
+        _vln.push_back(0); // GL_LINES
+        */
 
         // PBF :
         //apply forces v_i <= v_i + Dt * fext(xi) in this case gravity
@@ -349,10 +351,10 @@ private:
             if (_type[i] == 1)
             {
                 Vec2f pos = _pred_pos[i];
-                if (pos.x < 1) { _pred_pos[i].x = 1; /* _vel[i].x = 0*/  -_vel[i].x; }
-                if (pos.x > 29) { _pred_pos[i].x = 29; /*_vel[i].x = 0*/  -_vel[i].x; }
-                if (pos.y < 1) { _pred_pos[i].y = 1; /*_vel[i].y = 0*/ _vel[i].y = -_vel[i].y; }
-                if (pos.y > 39) { _pred_pos[i].y = 39; /*_vel[i].y = 0*/_vel[i].y = -_vel[i].y; }
+                if (pos.x < MIN_X) { _pred_pos[i].x = MIN_X; -_vel[i].x; }
+                if (pos.x > WALL_X) { _pred_pos[i].x = WALL_X; -_vel[i].x; }
+                if (pos.y < MIN_Y) { _pred_pos[i].y = MIN_Y; -_vel[i].y; }
+                if (pos.y > MAX_Y) { _pred_pos[i].y = MAX_Y; -_vel[i].y; }
             }
         }
     }
@@ -709,7 +711,6 @@ private:
 
         int solverIteration = 10;
 
-
 #pragma omp parallel for
         for (tIndex i = 0; i < particleCount(); ++i) {
             if (_type[i] != 1) continue;
@@ -723,8 +724,6 @@ private:
         for (tIndex i = 0; i < particleCount(); ++i) {
             if (_type[i] != 1) continue;
             _pred_pos[i] = _pos[i] + _dt * _vel[i];   // simple forward Euler
-
-
         }
     }
 
@@ -735,10 +734,6 @@ private:
             if (_type[i] != 1) continue;
             _pred_pos[i] += _dp[i];   // simple forward Euler
         }
-
-
-
-
     }
 
 
@@ -920,7 +915,7 @@ void initOpenGL()
 
 void init()
 {
-    gSolver.initScene(30, 40, 8, 8);
+    gSolver.initScene(MAX_X+1, MAX_Y+1, 10, 10);
 
     initGLFW();                   // Windowing system
     initOpenGL();
@@ -939,8 +934,9 @@ void render()
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     // grid guides
+    glBegin(GL_LINES);
     if (gShowGrid) {
-        glBegin(GL_LINES);
+        
         for (int i = 1; i < gSolver.resX(); ++i) {
             glColor3f(0.3, 0.3, 0.3);
             glVertex2f(static_cast<Real>(i), 0.0);
@@ -953,8 +949,13 @@ void render()
             glColor3f(0.3, 0.3, 0.3);
             glVertex2f(static_cast<Real>(gSolver.resX()), static_cast<Real>(j));
         }
-        glEnd();
     }
+    glColor3f(0.3, 0.3, 0.3);
+    glLineWidth(20);
+
+    glVertex2f(WALL_X + 0.3, MAX_Y+1);
+    glVertex2f(WALL_X+0.3, 0);
+    glEnd();
 
     // render particles
     glEnable(GL_POINT_SMOOTH);
@@ -1024,6 +1025,7 @@ void update(const float currentTime)
         double end = timer.tv_nsec * pow(10, -9) + timer.tv_sec;
         //std::cout << "Delay of one update" << end - start << std::endl;
         _dt = end - start;
+        WALL_X = MAX_X - 6 + 5 * sin(end);
     }
 }
 
