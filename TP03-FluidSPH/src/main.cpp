@@ -90,7 +90,7 @@ public:
         _gc[2] = _c[2] / h;
     }
     Real smoothingLen() const { return _h; }
-    Real supportRadius() const { return _sr; }
+    Real supportRadius() const { return /*_sr warning after checking the Poly6 code radius is here _h */ _h; }
 
     Real f(const Real l) const
     {
@@ -605,9 +605,12 @@ private:
             //sumnormgradCi += grad_sum.dotProduct(grad_sum);
 
             _lambda[i] /= (sumnormgradCi + SPH_EPSILON);
+
          
         }
     }
+
+    
 
     void computeDp()
     {
@@ -716,7 +719,7 @@ private:
 #pragma omp parallel for
         for (tIndex i = 0; i < particleCount(); ++i) {
             if (_type[i] == 1){
-                Vec2f spread = _pred_pos[i] - _pos[i];
+                //Vec2f spread = _pred_pos[i] - _pos[i];
                 _vel[i] = (_pred_pos[i] - _pos[i]) / _dt ;
                 //assert(!isnan(_vel[i].x) && !isnan(_vel[i].y));
                 
@@ -1058,39 +1061,54 @@ void update(const float currentTime)
 int main(int argc, char** argv)
 {
     cl_int test;
+    
 
     /*********************************************Context GPU INIT *****************************************/
-   // std::cout << "running on GPU" << std::endl;
-   // std::cout << "define CPU MACRO in the source code of videofilter.cpp to run on CPU" << std::endl;
-   // 
-   // char char_buffer[STRING_BUFFER_LEN];
-   // cl_platform_id platform;
-   // cl_device_id device;
+    std::cout << "running on GPU" << std::endl;
+    
+    char char_buffer[STRING_BUFFER_LEN];
+    cl_platform_id platform;
+    cl_device_id device;
 
-   //// unsigned char** opencl_program = read_file("operation.cl");
-   //
-   // int status;
-
-   // clGetPlatformIDs(1, &platform, NULL);
-   // clGetPlatformInfo(platform, CL_PLATFORM_NAME, STRING_BUFFER_LEN, char_buffer, NULL);
-   // std::cout << "NAME OF PLATEFORM" << std::endl<<char_buffer << std::endl;
-   // cl_context_properties context_properties[] = { CL_CONTEXT_PLATFORM, (cl_context_properties)platform, 0 }; //makes it run on windows
    // unsigned char** opencl_program = read_file("operation.cl");
+   
+    int status;
 
-   // context_properties[1] = (cl_context_properties)platform;
-   // clGetDeviceIDs(platform, CL_DEVICE_TYPE_GPU, 1, &device, NULL);
-   // env.context = clCreateContext(context_properties, 1, &device, NULL, NULL, NULL);
-   // env.queue = clCreateCommandQueue(env.context, device, 0, NULL);
+    clGetPlatformIDs(1, &platform, NULL);
+    clGetPlatformInfo(platform, CL_PLATFORM_NAME, STRING_BUFFER_LEN, char_buffer, NULL);
+    std::cout << "NAME OF PLATEFORM" << std::endl<<char_buffer << std::endl;
+    cl_context_properties context_properties[] = { CL_CONTEXT_PLATFORM, (cl_context_properties)platform, 0 }; //makes it run on windows
+    unsigned char** opencl_program = read_file("../../../src/CLSrc/operation.cl");
 
-   // env.program = clCreateProgramWithSource(env.context, 1, (const char**)opencl_program, NULL, NULL);
-   // if (env.program == NULL)
-   // {
-   //     printf("Program creation failed\n");
-   //     return 1;
-   // }
-   // int success = clBuildProgram(env.program, 0, NULL, NULL, NULL, NULL);
-   // if (success != CL_SUCCESS) print_clbuild_errors(env.program, device);
-   // env.kernel = clCreateKernel(env.program, "resolutionsansflou", NULL);
+    context_properties[1] = (cl_context_properties)platform;
+    clGetDeviceIDs(platform, CL_DEVICE_TYPE_GPU, 1, &device, NULL);
+    env.context = clCreateContext(context_properties, 1, &device, NULL, NULL, NULL);
+    env.queue = clCreateCommandQueue(env.context, device, 0, NULL);
+
+    env.program = clCreateProgramWithSource(env.context, 1, (const char**)opencl_program, NULL, NULL);
+    if (env.program == NULL)
+    {
+        printf("Program creation failed\n");
+        return 1;
+    }
+    int success = clBuildProgram(env.program, 0, NULL, NULL, NULL, NULL);
+    if (success != CL_SUCCESS) print_clbuild_errors(env.program, device);
+
+    env.computeDensity = clCreateKernel(env.program, "computeDensity", &success);
+    if (success != CL_SUCCESS) checkError(success, "probleme when loading kernel");
+
+
+    env.computeLambda = clCreateKernel(env.program, "computeLambda", NULL);
+
+    env.computeDp = clCreateKernel(env.program, "computeDp", NULL);
+
+    env.updatePrediction = clCreateKernel(env.program, "updatePrediction", NULL);
+
+    env.updateVelocity = clCreateKernel(env.program, "updateVelocity", NULL);
+
+    env.coputeVorticity = clCreateKernel(env.program, "computeVorticity", NULL);
+
+    env.applyViscousForce = clCreateKernel(env.program, "applyViscousForce", NULL);
     /*************************************END OF GPU INIT ****************************************************/
 
 
@@ -1102,6 +1120,38 @@ int main(int argc, char** argv)
         glfwSwapBuffers(gWindow);
         glfwPollEvents();
     }
+
+    status = clFinish(env.queue);
+    checkError(status, "Queue not finished");
+
+    status = clReleaseKernel(env.computeDensity);
+    checkError(status, "Failed to release kernel");
+
+    status = clReleaseKernel(env.computeLambda);
+    checkError(status, "Failed to release kernel");
+
+    status = clReleaseKernel(env.updatePrediction);
+    checkError(status, "Failed to release kernel");
+
+    status = clReleaseKernel(env.updateVelocity);
+    checkError(status, "Failed to release kernel");
+
+    status = clReleaseKernel(env.coputeVorticity);
+    checkError(status, "Failed to release kernel");
+
+    status = clReleaseKernel(env.applyViscousForce);
+    checkError(status, "Failed to release kernel");
+
+
+    status = clReleaseProgram(env.program);
+    checkError(status, "Failed to release program");
+    status = clReleaseCommandQueue(env.queue);
+    checkError(status, "Failed to release queue");
+
+    status = clReleaseContext(env.context);
+    checkError(status, "Failed to release context");
+
+
     clear();
     std::cout << " > Quit" << std::endl;
     return EXIT_SUCCESS;

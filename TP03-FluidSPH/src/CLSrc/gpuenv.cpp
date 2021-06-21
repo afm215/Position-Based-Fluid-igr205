@@ -79,7 +79,7 @@ void print_clbuild_errors(cl_program program, cl_device_id device)
 {
 	std::cout << "Program Build failed\n";
 	size_t length;
-	char buffer[2048];
+	char buffer[8048];
 	clGetProgramBuildInfo(program, device, CL_PROGRAM_BUILD_LOG, sizeof(buffer), buffer, &length);
 	std::cout << "--- Build log ---\n " << buffer << std::endl;
 	exit(1);
@@ -123,6 +123,11 @@ int clock_gettime(int, struct timespec* spec)      //C-file part
 	spec->tv_sec = wintime / 10000000i64;           //seconds
 	spec->tv_nsec = wintime % 10000000i64 * 100;      //nano-seconds
 	return 0;
+}
+
+void checkError(int status, const char* msg) {
+	if (status != CL_SUCCESS)
+		printf("%s: %s\n", msg, getErrorString(status));
 }
 
 #endif // DEBUG
