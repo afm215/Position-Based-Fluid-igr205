@@ -1,4 +1,4 @@
-// ----------------------------------------------------------------------------
+﻿// ----------------------------------------------------------------------------
 // main.cpp
 //
 //  Created on: Fri Jan 22 20:45:07 2021
@@ -14,27 +14,56 @@
 // Kiwon Um or in accordance with the terms and conditions stipulated in the
 // agreement/contract under which the program(s) have been supplied.
 // ----------------------------------------------------------------------------
+#define CLOCK_REALTIME 0
+#define NOMINMAX //reset namespace of windows.h
+#include <Windows.h>
+#include <assert.h> 
+
+#define SPH_EPSILON 200.0f
+
 
 #define _USE_MATH_DEFINES
 
 #include <GLFW/glfw3.h>
-
+#include <time.h>
 #include <iostream>
 #include <sstream>
 #include <iomanip>
 #include <vector>
 #include <cmath>
 
+#include "kernel.hpp"
+
 #ifndef M_PI
 #define M_PI 3.141592
 #endif
 
+#define NB_IT 3
+
 #include "Vector.hpp"
+
+double inf = std::numeric_limits<double>::infinity();
+
+//function implementation coming from here https://exceptionshub.com/porting-clock_gettime-to-windows.html
+int clock_gettime(int, struct timespec* spec)      //C-file part
+{
+    __int64 wintime; GetSystemTimeAsFileTime((FILETIME*)&wintime);
+    wintime -= 116444736000000000i64;  //1jan1601 to 1jan1970
+    spec->tv_sec = wintime / 10000000i64;           //seconds
+    spec->tv_nsec = wintime % 10000000i64 * 100;      //nano-seconds
+    return 0;
+}
 
 // window parameters
 GLFWwindow* gWindow = nullptr;
 int gWindowWidth = 1024;
 int gWindowHeight = 768;
+
+float MAX_X = 40;
+float MAX_Y = 30;
+float MIN_X = 1;
+float MIN_Y = 1;
+float WALL_X = MAX_X;
 
 // timer
 float gAppTimer = 0.0;
@@ -44,16 +73,19 @@ bool gAppTimerStoppedP = true;
 // global options
 bool gPause = true;
 bool gSaveFile = false;
-bool gShowGrid = true;
+bool gShowGrid = false;
 bool gShowVel = false;
 int gSavedCnt = 0;
 
 const int kViewScale = 15;
 
+Real _dt;                     // time step
+
+
 // SPH Kernel function: cubic spline
 class CubicSpline {
 public:
-    explicit CubicSpline(const Real h = 1) : _dim(2)
+    explicit CubicSpline(const Real h = 3) : _dim(2)
     {
         setSmoothingLen(h);
     }
@@ -87,11 +119,12 @@ public:
         return 0;
     }
 
-    Real w(const Vec2f& rij) const { return f(rij.length()); }
+    Real w(const Vec2f& rij) const { return Poly6Value(rij.length(), _h); }
+    Real w(const Real rij) const { return Poly6Value(rij, _h); }
     Vec2f grad_w(const Vec2f& rij) const { return grad_w(rij, rij.length()); }
     Vec2f grad_w(const Vec2f& rij, const Real len) const
     {
-        return derivative_f(len) * rij / len;
+        return SpikyGradient(rij, _h);
     }
 
 private:
@@ -102,13 +135,13 @@ private:
 class SphSolver {
 public:
     explicit SphSolver(
-        const Real nu = 0.08, const Real h = 0.5, const Real density = 1e3,
+        const Real nu = 0.08, const Real h = 1, const Real density = 1000,
         const Vec2f g = Vec2f(0, -9.8), const Real eta = 0.01, const Real gamma = 7.0) :
         _kernel(h), _nu(nu), _h(h), _d0(density),
         _g(g), _eta(eta), _gamma(gamma)
     {
-        _dt = 0.0005;
-        _m0 = _d0 * _h * _h;
+        _dt = 0.2;
+        _m0 = 1;
         _c = std::fabs(_g.y) / _eta;
         _p0 = _d0 * _c * _c / _gamma;     // k of EOS
     }
@@ -119,6 +152,7 @@ public:
         const int res_x, const int res_y, const int f_width, const int f_height)
     {
         _pos.clear();
+        _pred_pos.clear();
 
         _resX = res_x;
         _resY = res_y;
@@ -129,36 +163,69 @@ public:
         _b = 0.5 * _h;
         _t = static_cast<Real>(res_y) - 0.5 * _h;
 
+
         // sample a fluid mass
         for (int j = 0; j < f_height; ++j) {
             for (int i = 0; i < f_width; ++i) {
                 if (i == 0 || j == 0) continue;
-                _pos.push_back(Vec2f(i + 0.25, j + 0.25));
-                _pos.push_back(Vec2f(i + 0.75, j + 0.25));
-                _pos.push_back(Vec2f(i + 0.25, j + 0.75));
-                _pos.push_back(Vec2f(i + 0.75, j + 0.75));
+                // offset
+                int I = i + 1;
+                int J = j + 1;
+                _pos.push_back(Vec2f(I + 0.25, J + 0.25));
+                _pos.push_back(Vec2f(I + 0.75, J + 0.75));
+                _pred_pos.push_back(Vec2f(I + 0.25, J + 0.25));
+                _pred_pos.push_back(Vec2f(I + 0.75, J + 0.75));
                 _type.push_back(1);     // fluid
-                _type.push_back(1);
-                _type.push_back(1);
                 _type.push_back(1);
             }
         }
 
-        // solid
+ 
         for (int j = 0; j < res_y; ++j) {
             for (int i = 0; i < res_x; ++i) {
-                if (i == 0 || j == 0 || i == res_x - 1 || j == res_y - 1) {
-                    _pos.push_back(Vec2f(i + 0.25, j + 0.25));
-                    _pos.push_back(Vec2f(i + 0.75, j + 0.25));
-                    _pos.push_back(Vec2f(i + 0.25, j + 0.75));
-                    _pos.push_back(Vec2f(i + 0.75, j + 0.75));
+                if (j == 0 && i !=0) {
+                    _pos.push_back(Vec2f(i, j + 0.8));
+                    _pred_pos.push_back(Vec2f(i, j + 0.8));
                     _type.push_back(0);   // solid
-                    _type.push_back(0);
-                    _type.push_back(0);
-                    _type.push_back(0);
+                    _pos.push_back(Vec2f(i +0.5, j + 0.8));
+                    _pred_pos.push_back(Vec2f(i+0.5, j + 0.8));
+                    _type.push_back(0);   // solid
+                }
+                if (i == 0 && j !=0) {
+                    _pos.push_back(Vec2f(i + 0.8, j ));
+                    _pred_pos.push_back(Vec2f(i + 0.8, j));
+                    _type.push_back(0);   // solid
+                    _pos.push_back(Vec2f(i + 0.8, j + 0.5));
+                    _pred_pos.push_back(Vec2f(i + 0.8, j + 0.5));
+                    _type.push_back(0);   // solid
                 }
             }
         }
+
+        //solid bars
+        /*
+        int br=0;
+        int j = 7;
+        for (int i = 8; i <= 22; ++i) {
+            if (i == 22) { j ++; i = 21; br = 1; }
+            _pos.push_back(Vec2f(i + 0.25, j + 0.25));
+            _pos.push_back(Vec2f(i + 0.75, j + 0.25));
+            _pos.push_back(Vec2f(i + 0.25, j + 0.75));
+            _pos.push_back(Vec2f(i + 0.75, j + 0.75));
+            _pos.push_back(Vec2f(i + 0.5, j + 0.5));
+            _pred_pos.push_back(Vec2f(i + 0.25, j + 0.25));
+            _pred_pos.push_back(Vec2f(i + 0.75, j + 0.25));
+            _pred_pos.push_back(Vec2f(i + 0.25, j + 0.75));
+            _pred_pos.push_back(Vec2f(i + 0.75, j + 0.75));
+            _pred_pos.push_back(Vec2f(i + 0.5, j + 0.5));
+            _type.push_back(0);   // solid
+            _type.push_back(0);
+            _type.push_back(0);
+            _type.push_back(0);
+            _type.push_back(0);
+            if (br) break;
+        }
+        */
 
         // make sure for the other particle quantities
         _vel = std::vector<Vec2f>(_pos.size(), Vec2f(0, 0));
@@ -176,26 +243,76 @@ public:
     {
         std::cout << '.' << std::flush;
 
-        buildNeighbor();
-        computeDensity();
-        computePressure();
-
-        _acc = std::vector<Vec2f>(_pos.size(), Vec2f(0, 0));
+        // PBF :
+        //apply forces v_i <= v_i + Dt * fext(xi) in this case gravity
         applyBodyForce();
-        applyPressureForce();
-        applyViscousForce();
-
-        updateVelocity();
-        updatePosition();
-
+        //predict position p_i* <= p_i + Dt* v_i
+        predictPosition();
         // resolveCollision();
+         //compute the new neighbours using the predicted 
+        applyPhysicalConstraints();
+        buildNeighbor();
+        int i = 0;
+
+        while (i < NB_IT)
+        {
+            //compute lambda_i 
+            //computeLambda use the comutegradCi function wich use the density of the paricles 
+            computeDensity();
+            computeLambda();
+            //calculate the difference in positions using the lamba_i
+            computeDp();
+            //update the position p_i* = p_i* + dp_i
+            updatePrediction();
+            applyPhysicalConstraints();
+            i++;
+        }
+        //update the velocities v_i = p_i* - p_i 
+        updateVelocity();
+        //computeVorticity();
+        applyViscousForce();
+        // use the newly computed velocities to compute vorticity confinement and XSPH viscosity TO DO !!!
+        //applyViscousForce();
+        //modify the position p_i = p_i *
+        updatePosition();
 
         updateColor();
         if (gShowVel) updateVelLine();
+
+        /*
+        * // PSEUDO CODE :
+        *
+        for all particles i do
+            apply forces vi <= vi + Dtfext(xi)
+            predict position x*i <= xi + Dtvi
+        end for
+        for all particles i do
+            find neighboring particles Ni(x*i)
+        end for
+        while iter < solverIterations do
+            for all particles i do
+                calculate li
+            end for
+            for all particles i do
+                calculate Dpi
+                perform collision detection and response
+            end for
+            for all particles i do
+                update position x*i <= x*i + Dpi
+            end for
+        end while
+        for all particles i do
+            update velocity vi <= 1/Dt(x*i - xi)
+            apply vorticity confinement and XSPH viscosity
+            update position xi <= x*i
+        end for
+        */
+
+
     }
 
     tIndex particleCount() const { return _pos.size(); }
-    const Vec2f& position(const tIndex i) const { return _pos[i]; }
+    const Vec2f& position(const tIndex i) const { return _pred_pos[i]; }
     const float& color(const tIndex i) const { return _col[i]; }
     const float& vline(const tIndex i) const { return _vln[i]; }
 
@@ -210,6 +327,18 @@ public:
     }
 
 private:
+
+    void updateVelLine()
+    {
+        for (tIndex i = 0; i < particleCount(); ++i) {
+            _vln[i * 4 + 0] = _pos[i].x;
+            _vln[i * 4 + 1] = _pos[i].y;
+            _vln[i * 4 + 2] = _pos[i].x + _vel[i].x;
+            _vln[i * 4 + 3] = _pos[i].y + _vel[i].y;
+        }
+    }
+
+
     void buildNeighbor()
     {
         // particle indices in each cell
@@ -217,17 +346,37 @@ private:
 
         for (tIndex k = 0; k < particleCount(); ++k) {
             const Vec2f& p = position(k);
-            const int i = static_cast<int>(p.x), j = static_cast<int>(p.y);
+            int i = static_cast<int>(p.x), j = static_cast<int>(p.y);
+
+            const int indice = idx1d(i, j);
             pidx_in_grid[idx1d(i, j)].push_back(k);
         }
 
         _pidxInGrid.swap(pidx_in_grid);
     }
 
+    void applyPhysicalConstraints()
+    {
+#pragma omp parallel for
+        for (tIndex i = 0; i < particleCount(); ++i)
+        {
+            if (_type[i] == 1)
+            {
+                //float randF = (rand()+1) / 10000;
+                float rebound = 0.9;
+                Vec2f pos = _pred_pos[i];
+                if (pos.x < MIN_X) { _pred_pos[i].x = MIN_X + abs(MIN_X -_pred_pos[i].x) ;}
+                if (pos.x > WALL_X) { _pred_pos[i].x = WALL_X - abs(WALL_X - _pred_pos[i].x);}
+                if (pos.y < MIN_Y) { _pred_pos[i].y = MIN_Y + abs(MIN_Y - _pred_pos[i].y);}
+                if (pos.y > MAX_Y) { _pred_pos[i].y = MAX_Y - abs(MAX_Y - _pred_pos[i].y);}
+            }
+        }
+    }
+
     void computeDensity()
     {
         const Real sr = _kernel.supportRadius();
-
+        int nb_null = 0;
 #pragma omp parallel for
         for (tIndex i = 0; i < particleCount(); ++i) {
             Real sum_m = 0;
@@ -245,32 +394,216 @@ private:
                     // each particle in nearby cells
                     for (size_t ni = 0; ni < _pidxInGrid[gidx].size(); ++ni) {
                         const Vec2f& xj = position(_pidxInGrid[gidx][ni]);
-                        const Real len_xij = (xi - xj).length();
-                        sum_m += (len_xij < sr) ? _m0 * _kernel.f(len_xij) : 0;
+                        const Vec2f xij = xi - xj;
+
+                        const Real len_xij = xij.length();
+                        if (len_xij == 0) {
+                            nb_null++;
+                        }
+                        float value = 1;
+                        sum_m += _m0 * _kernel.w(xij);
+
                     }
                 }
             }
 
             _d[i] = sum_m;
         }
+        //std::cout << "Nombre de null d�tect�: " << nb_null<<std::endl;
+        //std::cout << "size of _pos : " << _pos.size() << std::endl;
     }
-    void computePressure()
-    {
-#pragma omp parallel for
-        for (tIndex i = 0; i < particleCount(); ++i) {
-            _p[i] = std::max(equationOfState(_d[i], _d0, _p0, _gamma), Real(0.0));
+
+
+
+    //    void computePressure()
+    //    {
+    //#pragma omp parallel for
+    //        for (tIndex i = 0; i < particleCount(); ++i) {
+    //            _p[i] = std::max(equationOfState(_d[i], _d0, _p0, _gamma), Real(0.0));
+    //        }
+    //    }
+
+    Vec2f computeGradCi(int i, int k) {
+
+
+        const Vec2f& xi = position(i);
+        const Real sr = _kernel.supportRadius();
+        Vec2f result = Vec2f(0, 0);
+
+        Vec2f p_i = position(i);
+
+
+        if (k == i) {
+
+            const int gi_from = static_cast<int>(p_i.x - sr);
+            const int gi_to = static_cast<int>(p_i.x + sr) + 1;
+            const int gj_from = static_cast<int>(p_i.y - sr);
+            const int gj_to = static_cast<int>(p_i.y + sr) + 1;
+
+
+            for (int gj = std::max(0, gj_from); gj < std::min(resY(), gj_to); ++gj) {
+                for (int gi = std::max(0, gi_from); gi < std::min(resX(), gi_to); ++gi) {
+                    const tIndex gidx = idx1d(gi, gj);
+
+                    for (size_t ni = 0; ni < _pidxInGrid[gidx].size(); ++ni) {
+
+                        const tIndex j = _pidxInGrid[gidx][ni];
+                        if (j == i) continue;
+                        const Vec2f& xj = position(j);
+                        const Vec2f xij = xi - xj;
+                        const Real len_xij = xij.length();
+                        if (len_xij > sr) continue;
+
+                        result += 1 / _d0 * _kernel.grad_w(xij);
+
+                    }
+                }
+            }
+
+            return result;
+        }
+
+        else {
+            const Vec2f& xk = position(k);
+            const Vec2f xik = xi - xk;
+            result -= 1 / _d0 * _kernel.grad_w(xik);
+            return result;
         }
     }
-    void applyBodyForce()
-    {
+
+    Vec2f compute_w_i(int i) {
+        const Vec2f& xi = position(i);
+        const Real sr = _kernel.supportRadius();
+        Vec2f result = Vec2f(0, 0);
+
+
+        const int gi_from = static_cast<int>(xi.x - sr);
+        const int gi_to = static_cast<int>(xi.x + sr) + 1;
+        const int gj_from = static_cast<int>(xi.y - sr);
+        const int gj_to = static_cast<int>(xi.y + sr) + 1;
+
+        for (int gj = std::max(0, gj_from); gj < std::min(resY(), gj_to); ++gj) {
+            for (int gi = std::max(0, gi_from); gi < std::min(resX(), gi_to); ++gi) {
+                const tIndex gidx = idx1d(gi, gj);
+
+
+                for (size_t ni = 0; ni < _pidxInGrid[gidx].size(); ++ni) {
+
+                    const tIndex j = _pidxInGrid[gidx][ni];
+                    const Vec2f& xj = position(j);
+                    const Vec2f xij = xi - xj;
+                    const Real len_xij = xij.length();
+                    if (len_xij > sr) continue;
+                    Vec2f vij = _vel[j] - _vel[i];
+                    result -= vij * _kernel.grad_w(xij); // WARNING wait to be sure (grad-pj = - grad ??)
+                    assert(abs(result.x) != inf && abs(result.y) != inf);
+                    assert(!isnan(result.x) && !isnan(result.y));
+                }
+            }
+        }
+
+        return result;
+
+    }
+
+    Vec2f ComputeEta(int i, Vec2f wi) {
+        const Vec2f& xi = position(i);
+
+        const Real sr = _kernel.supportRadius();
+
+        /* const int gi_from = static_cast<int>(xi.x - sr);
+         const int gi_to = static_cast<int>(xi.x + sr) + 1;
+         const int gj_from = static_cast<int>(xi.y - sr);
+         const int gj_to = static_cast<int>(xi.y + sr) + 1;
+
+         Vec2f result = Vec2f(0);
+
+         for (int gj = std::max(0, gj_from); gj < std::min(resY(), gj_to); ++gj) {
+             for (int gi = std::max(0, gi_from); gi < std::min(resX(), gi_to); ++gi) {
+                 const tIndex gidx = idx1d(gi, gj);
+
+
+                 for (size_t ni = 0; ni < _pidxInGrid[gidx].size(); ++ni) {
+                     const tIndex j = _pidxInGrid[gidx][ni];
+                     const Vec2f& xj = position(j);
+                     Vec2f xij = xi - xj;
+                     const float wi_length = wi.length();
+                     Vec2f gradient = _kernel.grad_w(xij);
+                     result += (wi_length * gradient);
+                 }
+             }
+         }*/
+        Vec2f result = Vec2f(0);
+        result = _kernel.grad_w(wi);
+        assert(!isnan(result.x) && !isnan(result.y));
+        assert(abs(result.x) != inf && abs(result.y) != inf);
+        return result;
+    }
+
+    void computeVorticity() {
 #pragma omp parallel for
-        for (tIndex i = 0; i < particleCount(); ++i) {
-            if (_type[i] != 1) continue;
-            _acc[i] += _g;
+        for (tIndex i = 0; i < particleCount(); i++) {
+            Vec2f w_i = compute_w_i(i);
+            Vec2f N = ComputeEta(i, w_i);
+            N = N.normalize();
+            _vel[i] += _dt * _m0 * 1.0f * N.crossProduct(w_i);
+            assert(!isnan(_vel[i].x) && !isnan(_vel[i].y));
         }
     }
-    void applyPressureForce()
+
+
+    void computeLambda()
     {
+        _lambda.clear();
+        const Real sr = _kernel.supportRadius();
+#pragma omp parallel for
+        for (tIndex i = 0; i < particleCount(); ++i) {
+
+
+            Real c_i = _d[i] / _d0 - 1;
+            _lambda.push_back(-c_i);
+
+            Real sumnormgradCi = 0;
+            Vec2f grad_sum = Vec2f(0);
+
+            Vec2f p_i = position(i);
+
+
+
+            const int gi_from = static_cast<int>(p_i.x - sr);
+            const int gi_to = static_cast<int>(p_i.x + sr) + 1;
+            const int gj_from = static_cast<int>(p_i.y - sr);
+            const int gj_to = static_cast<int>(p_i.y + sr) + 1;
+
+
+            for (int gj = std::max(0, gj_from); gj < std::min(resY(), gj_to); ++gj) {
+                for (int gi = std::max(0, gi_from); gi < std::min(resX(), gi_to); ++gi) {
+                    const tIndex gidx = idx1d(gi, gj);
+
+                    for (size_t ni = 0; ni < _pidxInGrid[gidx].size(); ++ni) {
+                        Vec2f gradCi = computeGradCi(i, _pidxInGrid[gidx][ni]);
+                        /*auto j = _pidxInGrid[gidx][ni];
+                        Vec2f xj = position(j);
+                        Vec2f xij = p_i - xj;
+                        Vec2f gradCi = _kernel.grad_w(xij) / _d0;
+
+                        grad_sum += gradCi;*/
+                        sumnormgradCi += gradCi.dotProduct(gradCi);
+
+                    }
+                }
+            }
+
+            //sumnormgradCi += grad_sum.dotProduct(grad_sum);
+
+            _lambda[i] /= (sumnormgradCi + SPH_EPSILON);
+
+        }
+    }
+
+    void computeDp()
+    {
+        _dp.clear();
         const Real sr = _kernel.supportRadius();
 
 #pragma omp parallel for
@@ -278,6 +611,9 @@ private:
             if (_type[i] != 1) continue;
             Vec2f sum_grad_p(0, 0);
             const Vec2f& xi = position(i);
+
+            Real dq = 0.3;
+
 
             const int gi_from = static_cast<int>(xi.x - sr);
             const int gi_to = static_cast<int>(xi.x + sr) + 1;
@@ -292,23 +628,43 @@ private:
                     for (size_t ni = 0; ni < _pidxInGrid[gidx].size(); ++ni) {
                         const tIndex j = _pidxInGrid[gidx][ni];
                         if (i == j) continue;
+                        //if (_type[j] != 1) continue;
                         const Vec2f& xj = position(j);
                         const Vec2f xij = xi - xj;
-                        const Real len_xij = xij.length();
-                        if (len_xij > sr) continue;
 
-                        sum_grad_p += (_p[i] / square(_d[i]) + _p[j] / square(_d[j])) *
-                            _kernel.grad_w(xij, len_xij);
+                        Real scorr = -0.001f * pow(_kernel.w(xij) / _kernel.w(dq), 4);
+                        sum_grad_p += (_lambda[i] + _lambda[j] + scorr) * _kernel.grad_w(xij);
                     }
                 }
             }
 
-            _acc[i] -= _m0 * sum_grad_p;
+            _dp.push_back(sum_grad_p / _d0);   // TODO pas sur du tout changmeent pour debug 
         }
     }
+
+    void applyBodyForce()
+    {
+#pragma omp parallel for
+        for (tIndex i = 0; i < particleCount(); ++i) {
+
+            if (_type[i] == 1) {
+                _acc[i] = _g;
+                _vel[i] += _dt * _acc[i];
+                assert(!isnan(_vel[i].x) && !isnan(_vel[i].y));
+            }
+            else {
+                _acc[i] = Vec2f(0);
+                _vel[i] = Vec2f(0);
+            }
+
+            // simple forward Euler
+        }
+    }
+
     void applyViscousForce()
     {
         const Real sr = _kernel.supportRadius();
+        Real c = 0.0001;
 
 #pragma omp parallel for
         for (tIndex i = 0; i < particleCount(); ++i) {
@@ -335,14 +691,16 @@ private:
                         const Real len_xij = xij.length();
                         if (len_xij > sr) continue;
 
-                        sum_acc += (_m0 / _d[j]) *
-                            vij * xij.dotProduct(_kernel.grad_w(xij, len_xij)) /
-                            (xij.dotProduct(xij) + 0.01 * square(_h));
+                        sum_acc +=
+                            vij * _kernel.w(xij);
+
                     }
                 }
             }
 
-            _acc[i] += 2.0 * _nu * sum_acc;
+            _vel[i] += c * sum_acc;
+            assert(!isnan(_vel[i].x) && !isnan(_vel[i].y));
+
         }
     }
 
@@ -350,36 +708,43 @@ private:
     {
 #pragma omp parallel for
         for (tIndex i = 0; i < particleCount(); ++i) {
-            if (_type[i] != 1) continue;
-            _vel[i] += _dt * _acc[i];   // simple forward Euler
+            if (_type[i] == 1) {
+                Vec2f spread = _pred_pos[i] - _pos[i];
+                _vel[i] = (_pred_pos[i] - _pos[i]) / _dt;
+                assert(!isnan(_vel[i].x) && !isnan(_vel[i].y));
+
+            }
+            else {
+                _vel[i] = Vec2f(0);
+
+            }
         }
     }
     void updatePosition()
     {
+
 #pragma omp parallel for
         for (tIndex i = 0; i < particleCount(); ++i) {
             if (_type[i] != 1) continue;
-            _pos[i] += _dt * _vel[i];   // simple forward Euler
+            _pos[i] = _pred_pos[i];
         }
     }
 
-    // simple collision detection/resolution for each particle
-    void resolveCollision()
+    void predictPosition()
     {
-        std::vector<tIndex> need_res;
+#pragma omp parallel for
         for (tIndex i = 0; i < particleCount(); ++i) {
-            if (_pos[i].x<_l || _pos[i].y<_b || _pos[i].x>_r || _pos[i].y>_t)
-                need_res.push_back(i);
+            if (_type[i] != 1) continue;
+            _pred_pos[i] = _pos[i] + _dt * _vel[i];   // simple forward Euler
         }
+    }
 
-        for (
-            std::vector<tIndex>::const_iterator it = need_res.begin();
-            it < need_res.end();
-            ++it) {
-            const Vec2f p0 = _pos[*it];
-            _pos[*it].x = clamp(_pos[*it].x, _l, _r);
-            _pos[*it].y = clamp(_pos[*it].y, _b, _t);
-            _vel[*it] = (_pos[*it] - p0) / _dt;
+    void updatePrediction()
+    {
+#pragma omp parallel for
+        for (tIndex i = 0; i < particleCount(); ++i) {
+            if (_type[i] != 1) continue;
+            _pred_pos[i] += _dp[i];   // simple forward Euler
         }
     }
 
@@ -388,9 +753,9 @@ private:
 #pragma omp parallel for
         for (tIndex i = 0; i < particleCount(); ++i) {
             if (_type[i] != 1) {
-                _col[i * 4 + 0] = 0.8;
-                _col[i * 4 + 1] = 0.8;
-                _col[i * 4 + 2] = 0.8;
+                _col[i * 4 + 0] = 0.2;
+                _col[i * 4 + 1] = 0.2;
+                _col[i * 4 + 2] = 0.2;
             }
             else {
                 _col[i * 4 + 0] = 0.6;
@@ -400,16 +765,16 @@ private:
         }
     }
 
-    void updateVelLine()
-    {
-#pragma omp parallel for
-        for (tIndex i = 0; i < particleCount(); ++i) {
-            _vln[i * 4 + 0] = _pos[i].x;
-            _vln[i * 4 + 1] = _pos[i].y;
-            _vln[i * 4 + 2] = _pos[i].x + _vel[i].x;
-            _vln[i * 4 + 3] = _pos[i].y + _vel[i].y;
-        }
-    }
+    /* void updateVelLine()
+     {
+ #pragma omp parallel for
+         for (tIndex i = 0; i < particleCount(); ++i) {
+             _vln[i * 4 + 0] = _pos[i].x;
+             _vln[i * 4 + 1] = _pos[i].y;
+             _vln[i * 4 + 2] = _pos[i].x + _vel[i].x;
+             _vln[i * 4 + 3] = _pos[i].y + _vel[i].y;
+         }
+     }*/
 
     inline tIndex idx1d(const int i, const int j) { return i + j * resX(); }
 
@@ -418,9 +783,12 @@ private:
     // particle data
     std::vector<int>   _type;     // type
     std::vector<Vec2f> _pos;      // position
+    std::vector<Vec2f> _pred_pos; // predicted position
+    std::vector<Vec2f> _dp;       // position shift
     std::vector<Vec2f> _vel;      // velocity
     std::vector<Vec2f> _acc;      // acceleration
     std::vector<Real>  _p;        // pressure
+    std::vector<Real>  _lambda;        // density constraint
     std::vector<Real>  _d;        // density
 
     std::vector< std::vector<tIndex> > _pidxInGrid; // particle neighbor data
@@ -429,7 +797,6 @@ private:
     std::vector<float> _vln;    // particle velocity lines; just for visualization
 
     // simulation
-    Real _dt;                     // time step
 
     int _resX, _resY;             // background grid resolution
 
@@ -438,7 +805,7 @@ private:
 
     // SPH coefficients
     Real _nu;                     // viscosity coefficient
-    Real _d0;                     // rest density
+    const Real _d0;                     // rest density
     Real _h;                      // particle spacing
     Vec2f _g;                     // gravity
 
@@ -450,7 +817,7 @@ private:
     Real _gamma;                  // EOS power factor
 };
 
-SphSolver gSolver(0.08, 0.5, 1e3, Vec2f(0, -9.8), 0.01, 7.0);
+SphSolver gSolver(0.08, 1.2, 1, Vec2f(0, -9.8), 0.01, 7.0);
 
 void printHelp()
 {
@@ -559,7 +926,7 @@ void initOpenGL()
 
 void init()
 {
-    gSolver.initScene(15, 20, 5, 10);
+    gSolver.initScene(MAX_X+1, MAX_Y+1, 20, 10);
 
     initGLFW();                   // Windowing system
     initOpenGL();
@@ -578,8 +945,9 @@ void render()
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     // grid guides
+    glBegin(GL_LINES);
     if (gShowGrid) {
-        glBegin(GL_LINES);
+        
         for (int i = 1; i < gSolver.resX(); ++i) {
             glColor3f(0.3, 0.3, 0.3);
             glVertex2f(static_cast<Real>(i), 0.0);
@@ -592,8 +960,13 @@ void render()
             glColor3f(0.3, 0.3, 0.3);
             glVertex2f(static_cast<Real>(gSolver.resX()), static_cast<Real>(j));
         }
-        glEnd();
     }
+    glColor3f(0.3, 0.3, 0.3);
+    glLineWidth(20);
+
+    glVertex2f(WALL_X + 0.3, MAX_Y+1);
+    glVertex2f(WALL_X+0.3, 0);
+    glEnd();
 
     // render particles
     glEnable(GL_POINT_SMOOTH);
@@ -654,9 +1027,15 @@ void update(const float currentTime)
         gAppTimerLastClockTime = currentTime;
         gAppTimer += dt;
         // <---- Update here what needs to be animated over time ---->
-
-        // solve 10 steps
-        for (int i = 0; i < 10; ++i) gSolver.update();
+        timespec timer;
+        clock_gettime(CLOCK_REALTIME, &timer);
+        double start = timer.tv_nsec * pow(10, -9) + timer.tv_sec;
+        gSolver.update();
+        clock_gettime(CLOCK_REALTIME, &timer);
+        double end = timer.tv_nsec * pow(10, -9) + timer.tv_sec;
+        //std::cout << "Delay of one update" << end - start << std::endl;
+        _dt = end - start;
+        WALL_X = MAX_X - 6 + 5 * sin(end/2);
     }
 }
 

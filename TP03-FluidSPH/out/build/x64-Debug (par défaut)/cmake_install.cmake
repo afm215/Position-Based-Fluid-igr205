@@ -1,8 +1,8 @@
-# Install script for directory: C:/Users/galau/OneDrive/Documents/Clément/Ecole/2A/IGR/IGR202/TP03-FluidSPH
+# Install script for directory: D:/1.COURS/TELECOM/IGR/IGR205/igr205/TP03-FluidSPH
 
 # Set the install prefix
 if(NOT DEFINED CMAKE_INSTALL_PREFIX)
-  set(CMAKE_INSTALL_PREFIX "C:/Users/galau/OneDrive/Documents/Clément/Ecole/2A/IGR/IGR202/TP03-FluidSPH/out/install/x64-Debug (par défaut)")
+  set(CMAKE_INSTALL_PREFIX "D:/1.COURS/TELECOM/IGR/IGR205/Position based fluids/out/build/x64-Debug (par défaut)")
 endif()
 string(REGEX REPLACE "/$" "" CMAKE_INSTALL_PREFIX "${CMAKE_INSTALL_PREFIX}")
 
@@ -34,7 +34,7 @@ endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for each subdirectory.
-  include("C:/Users/galau/OneDrive/Documents/Clément/Ecole/2A/IGR/IGR202/TP03-FluidSPH/out/build/x64-Debug (par défaut)/dep/glfw/cmake_install.cmake")
+  include("D:/1.COURS/TELECOM/IGR/IGR205/igr205/TP03-FluidSPH/out/build/x64-Debug (par défaut)/dep/glfw/cmake_install.cmake")
 
 endif()
 
@@ -46,5 +46,5 @@ endif()
 
 string(REPLACE ";" "\n" CMAKE_INSTALL_MANIFEST_CONTENT
        "${CMAKE_INSTALL_MANIFEST_FILES}")
-file(WRITE "C:/Users/galau/OneDrive/Documents/Clément/Ecole/2A/IGR/IGR202/TP03-FluidSPH/out/build/x64-Debug (par défaut)/${CMAKE_INSTALL_MANIFEST}"
+file(WRITE "D:/1.COURS/TELECOM/IGR/IGR205/igr205/TP03-FluidSPH/out/build/x64-Debug (par défaut)/${CMAKE_INSTALL_MANIFEST}"
      "${CMAKE_INSTALL_MANIFEST_CONTENT}")
