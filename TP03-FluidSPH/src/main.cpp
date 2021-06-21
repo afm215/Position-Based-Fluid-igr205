@@ -38,7 +38,7 @@
 #define M_PI 3.141592
 #endif
 
-#define NB_IT 5
+#define NB_IT 3
 
 #include "Vector.hpp"
 
@@ -176,7 +176,6 @@ public:
                 _pred_pos.push_back(Vec2f(I + 0.25, J + 0.25));
                 _pred_pos.push_back(Vec2f(I + 0.75, J + 0.75));
                 _type.push_back(1);     // fluid
-
                 _type.push_back(1);
             }
         }
@@ -184,9 +183,20 @@ public:
  
         for (int j = 0; j < res_y; ++j) {
             for (int i = 0; i < res_x; ++i) {
-                if (i == 0 || j == 0 || i == res_x - 1 || j == res_y - 1) {
-                    _pos.push_back(Vec2f(i + 0.5, j + 0.5));
-                    _pred_pos.push_back(Vec2f(i + 0.5, j + 0.5));
+                if (j == 0) {
+                    _pos.push_back(Vec2f(i, j + 0.8));
+                    _pred_pos.push_back(Vec2f(i, j + 0.8));
+                    _type.push_back(0);   // solid
+                    _pos.push_back(Vec2f(i +0.5, j + 0.8));
+                    _pred_pos.push_back(Vec2f(i+0.5, j + 0.8));
+                    _type.push_back(0);   // solid
+                }
+                if (i == 0) {
+                    _pos.push_back(Vec2f(i + 0.8, j ));
+                    _pred_pos.push_back(Vec2f(i + 0.8, j));
+                    _type.push_back(0);   // solid
+                    _pos.push_back(Vec2f(i + 0.8, j + 0.5));
+                    _pred_pos.push_back(Vec2f(i + 0.8, j + 0.5));
                     _type.push_back(0);   // solid
                 }
             }
