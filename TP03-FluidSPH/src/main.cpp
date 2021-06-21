@@ -180,19 +180,19 @@ public:
             }
         }
 
- 
+
         for (int j = 0; j < res_y; ++j) {
             for (int i = 0; i < res_x; ++i) {
-                if (j == 0 && i !=0) {
+                if (j == 0 && i != 0) {
                     _pos.push_back(Vec2f(i, j + 0.8));
                     _pred_pos.push_back(Vec2f(i, j + 0.8));
                     _type.push_back(0);   // solid
-                    _pos.push_back(Vec2f(i +0.5, j + 0.8));
-                    _pred_pos.push_back(Vec2f(i+0.5, j + 0.8));
+                    _pos.push_back(Vec2f(i + 0.5, j + 0.8));
+                    _pred_pos.push_back(Vec2f(i + 0.5, j + 0.8));
                     _type.push_back(0);   // solid
                 }
-                if (i == 0 && j !=0) {
-                    _pos.push_back(Vec2f(i + 0.8, j ));
+                if (i == 0 && j != 0) {
+                    _pos.push_back(Vec2f(i + 0.8, j));
                     _pred_pos.push_back(Vec2f(i + 0.8, j));
                     _type.push_back(0);   // solid
                     _pos.push_back(Vec2f(i + 0.8, j + 0.5));
@@ -365,10 +365,10 @@ private:
                 //float randF = (rand()+1) / 10000;
                 float rebound = 0.9;
                 Vec2f pos = _pred_pos[i];
-                if (pos.x < MIN_X) { _pred_pos[i].x = MIN_X + abs(MIN_X -_pred_pos[i].x) ;}
-                if (pos.x > WALL_X) { _pred_pos[i].x = WALL_X - abs(WALL_X - _pred_pos[i].x);}
-                if (pos.y < MIN_Y) { _pred_pos[i].y = MIN_Y + abs(MIN_Y - _pred_pos[i].y);}
-                if (pos.y > MAX_Y) { _pred_pos[i].y = MAX_Y - abs(MAX_Y - _pred_pos[i].y);}
+                if (pos.x < MIN_X) { _pred_pos[i].x = MIN_X + abs(MIN_X - _pred_pos[i].x); }
+                if (pos.x > WALL_X) { _pred_pos[i].x = WALL_X - abs(WALL_X - _pred_pos[i].x); }
+                if (pos.y < MIN_Y) { _pred_pos[i].y = MIN_Y + abs(MIN_Y - _pred_pos[i].y); }
+                if (pos.y > MAX_Y) { _pred_pos[i].y = MAX_Y - abs(MAX_Y - _pred_pos[i].y); }
             }
         }
     }
@@ -515,14 +515,10 @@ private:
          const int gi_to = static_cast<int>(xi.x + sr) + 1;
          const int gj_from = static_cast<int>(xi.y - sr);
          const int gj_to = static_cast<int>(xi.y + sr) + 1;
-
          Vec2f result = Vec2f(0);
-
          for (int gj = std::max(0, gj_from); gj < std::min(resY(), gj_to); ++gj) {
              for (int gi = std::max(0, gi_from); gi < std::min(resX(), gi_to); ++gi) {
                  const tIndex gidx = idx1d(gi, gj);
-
-
                  for (size_t ni = 0; ni < _pidxInGrid[gidx].size(); ++ni) {
                      const tIndex j = _pidxInGrid[gidx][ni];
                      const Vec2f& xj = position(j);
@@ -586,7 +582,6 @@ private:
                         Vec2f xj = position(j);
                         Vec2f xij = p_i - xj;
                         Vec2f gradCi = _kernel.grad_w(xij) / _d0;
-
                         grad_sum += gradCi;*/
                         sumnormgradCi += gradCi.dotProduct(gradCi);
 
@@ -597,8 +592,8 @@ private:
             //sumnormgradCi += grad_sum.dotProduct(grad_sum);
 
             _lambda[i] /= (sumnormgradCi + SPH_EPSILON);
-
         }
+        std::cout << _lambda[0] << std::endl;
     }
 
     void computeDp()
@@ -926,7 +921,7 @@ void initOpenGL()
 
 void init()
 {
-    gSolver.initScene(MAX_X+1, MAX_Y+1, 20, 10);
+    gSolver.initScene(MAX_X + 1, MAX_Y + 1, 20, 10);
 
     initGLFW();                   // Windowing system
     initOpenGL();
@@ -947,7 +942,7 @@ void render()
     // grid guides
     glBegin(GL_LINES);
     if (gShowGrid) {
-        
+
         for (int i = 1; i < gSolver.resX(); ++i) {
             glColor3f(0.3, 0.3, 0.3);
             glVertex2f(static_cast<Real>(i), 0.0);
@@ -964,8 +959,8 @@ void render()
     glColor3f(0.3, 0.3, 0.3);
     glLineWidth(20);
 
-    glVertex2f(WALL_X + 0.3, MAX_Y+1);
-    glVertex2f(WALL_X+0.3, 0);
+    glVertex2f(WALL_X + 0.3, MAX_Y + 1);
+    glVertex2f(WALL_X + 0.3, 0);
     glEnd();
 
     // render particles
@@ -1035,7 +1030,7 @@ void update(const float currentTime)
         double end = timer.tv_nsec * pow(10, -9) + timer.tv_sec;
         //std::cout << "Delay of one update" << end - start << std::endl;
         _dt = end - start;
-        WALL_X = MAX_X - 6 + 5 * sin(end/2);
+        WALL_X = MAX_X - 6 + 5 * sin(end / 2);
     }
 }
 
