@@ -27,7 +27,7 @@ project(tpSph)
 
 add_executable(
   ${PROJECT_NAME}
-  src/main.cpp "src/kernel.hpp" "src/CLSrc/gpuenv.cpp" "src/CLHeader/clcomputing.h")
+  src/main.cpp "src/kernel.hpp" "src/CLSrc/gpuenv.cpp" "src/CLSrc/clcomputing.cpp")
 
   set(OpenCL_LIBRARY ../../../dep/opencl/lib/x86_64/OpenCL)
   FIND_PACKAGE(OpenCL REQUIRED)

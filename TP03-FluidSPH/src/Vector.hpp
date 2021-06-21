@@ -19,6 +19,9 @@
 #ifndef _VECTOR_HPP_
 #define _VECTOR_HPP_
 
+
+
+
 typedef float Real;
 typedef long int tIndex;
 

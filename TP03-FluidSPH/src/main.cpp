@@ -15,11 +15,12 @@
 // agreement/contract under which the program(s) have been supplied.
 // ----------------------------------------------------------------------------
 #define CLOCK_REALTIME 0
-#define NOMINMAX //reset namespace of windows.h
 #include <assert.h> 
+#define NOMINMAX //reset namespace of windows.h
 
 #include "CLSrc/gpuenv.h"
 
+#include "CLHeader/clcomputing.h"
 
 #define SPH_EPSILON 200.0f
 
@@ -201,6 +202,10 @@ public:
 
         // make sure for the other particle quantities
         _vel = std::vector<Vec2f>(_pos.size(), Vec2f(0, 0));
+        flatten_vel = (float*)malloc(2 * _pos.size() * sizeof(float));
+        flatten_pos = (float*)malloc(2 * _pos.size() * sizeof(float));
+        flatten_pred_pos = (float*)malloc(2 * _pos.size() * sizeof(float));
+
         _acc = std::vector<Vec2f>(_pos.size(), Vec2f(0, 0));
         _p = std::vector<Real>(_pos.size(), 0);
         _d = std::vector<Real>(_pos.size(), 0);
@@ -226,31 +231,82 @@ public:
         //compute the new neighbours using the predicted 
         applyPhysicalConstraints();
         buildNeighbor();
-        int i = 0;
 
-        while (i < NB_IT)
-        {   
-            
-            //compute lambda_i 
-            //computeLambda use the comutegradCi function wich use the density of the paricles 
-            computeDensity();
-            computeLambda();
-            //calculate the difference in positions using the lamba_i
-            computeDp();
-            //update the position p_i* = p_i* + dp_i
-            updatePrediction();
-            //applyPhysicalConstraints();
+        tIndex test = 0;
+        int yo = test;
+        int  index_size = _pidxInGrid.size();
+        std::vector<int> indexes;
+        std::vector<int> flattenN;
+        int end_index = 0;
+        for (int i = 0; i < index_size; i++) {
+            end_index += _pidxInGrid[i].size();
+            indexes.push_back(end_index);
 
-            i++;
+            for (int j = 0; j < _pidxInGrid[i].size(); j++) {
+                flattenN.push_back(_pidxInGrid[i][j]);
+
+            }
         }
-        //update the velocities v_i = p_i* - p_i 
-        updateVelocity();
-        computeVorticity();
-        applyViscousForce();
+        const int cl_pGrid_Size = flattenN.size();
+        const int cl_index_size = indexes.size();
+        int* cl_flatten = flattenN.data();
+        int* cl_indexes = indexes.data();
+
+        cl_indexes[0] = 42;
+        std::cout << indexes[0] <<std::endl;
+        flattenPosVel();
+        
+
+
+        /*for (int i = 0; i < index_size; i++) {
+            for (int j = 0; j < _pidxInGrid[i].size(); j++) {
+                if (i == 0)
+                {
+                    std::cout << flattenN[j] << std::endl;
+                }
+                else {
+                    std::cout << flattenN[indexes[i - 1] + j] << std::endl;
+                    std::cout << cl_flatten[indexes[i - 1] + j] << std::endl;
+                    assert(flattenN[indexes[i - 1] + j] == _pidxInGrid[i][j]);
+                }
+
+
+            }
+        }*/
+
+        
+        //int i = 0;
+        gpu_handle(env, NB_IT, flatten_pos,flatten_pred_pos, flatten_vel, _pos.size(), cl_flatten,cl_pGrid_Size, cl_index_size, cl_indexes, resX(), resY(), _h, _m0, _d0);
+        //while (i < NB_IT)
+        //{   
+        //    
+        //    //compute lambda_i 
+        //    //computeLambda use the comutegradCi function wich use the density of the paricles 
+        //    computeDensity();
+        //    computeLambda();
+        //    //calculate the difference in positions using the lamba_i
+        //    computeDp();
+        //    //update the position p_i* = p_i* + dp_i
+        //    updatePrediction();
+        //    //applyPhysicalConstraints();
+
+        //    i++;
+        //}
+        ////update the velocities v_i = p_i* - p_i 
+        //updateVelocity();
+        //computeVorticity();
+        //applyViscousForce();
         // use the newly computed velocities to compute vorticity confinement and XSPH viscosity TO DO !!!
-    
+        
+        updatePosVelFromFlat();
+        //no need to free the flatten indexes as everything is passed by reference;
+        
+
+
         //modify the position p_i = p_i *
         updatePosition();
+
+
 
         updateColor();
         /*if (gShowVel) updateVelLine();*/
@@ -288,6 +344,42 @@ public:
 
     }
 
+    void flattenPosVel(){
+        int array_size = _pos.size();
+
+        #pragma omp parallel for
+        for (int i = 0; i < array_size; i++) {
+            flatten_pos[2 * i] = _pos[i].x;
+            flatten_pos[2 * i + 1] = _pos[i].y;
+
+            flatten_vel[2 * i] = _vel[i].x;
+            flatten_vel[2 * i + 1] = _vel[i].y;
+
+            flatten_pred_pos[2 * i] = _pred_pos[i].x;
+            flatten_pred_pos[2 * i + 1] = _pred_pos[i].y;
+
+        }
+
+    
+    }
+
+    void updatePosVelFromFlat() {
+        
+        int array_size = _pos.size();
+        #pragma omp parallel for
+        for (int i = 0; i < array_size; i++) {
+            //normally only pre_pos is updated not pos
+            _pred_pos[i].x = flatten_pred_pos[2 * i];
+            _pred_pos[i].y = flatten_pred_pos[2 * i + 1]; 
+
+            _vel[i].x = flatten_vel[2 * i];
+            _vel[i].y = flatten_vel[2 * i + 1];
+        }
+
+    }
+
+
+
     tIndex particleCount() const { return _pos.size(); }
     const Vec2f& position(const tIndex i) const { return _pred_pos[i]; }
     const float& color(const tIndex i) const { return _col[i]; }
@@ -315,7 +407,7 @@ private:
             
             
             const int indice = idx1d(i, j);
-            pidx_in_grid[idx1d(i, j)].push_back(k);
+            pidx_in_grid[indice].push_back(k);
         }
 
         _pidxInGrid.swap(pidx_in_grid);
@@ -323,7 +415,7 @@ private:
 
     void applyPhysicalConstraints()
     {
-#pragma omp parallel for
+        #pragma omp parallel for
         for (tIndex i = 0; i < particleCount(); ++i)
         {
             if (_type[i] == 1)
@@ -339,38 +431,7 @@ private:
 
     void computeDensity()
     {
-        tIndex test = 0;
-        int yo = test;
-        int  index_size = _pidxInGrid.size();
-        std::vector<int> indexes;
-        std::vector<int> flattenN;
-        int end_index = 0;
-        for (int i = 0; i < index_size; i ++) {
-            end_index += _pidxInGrid[i].size();
-            indexes.push_back(end_index);
-            for (int j = 0; j < indexes[i]; j++) {
-                flattenN.push_back(_pidxInGrid[i][j]);
-
-            }
-        }
-
-        int* cl_flatten = flattenN.data();
-       
-        for (int i = 0; i < index_size; i++) {
-            for (int j = 0; j < _pidxInGrid[i].size(); j++) {
-                if (i == 0)
-                {
-                    std::cout << flattenN[j] << std::endl;
-                }
-                else {
-                    std::cout << flattenN[indexes[i - 1] + j] << std::endl; 
-                    std::cout << cl_flatten[indexes[i - 1] + j] << std::endl;
-                    assert(flattenN[indexes[i - 1] + j] == _pidxInGrid[i][j]);
-                }
-                
-
-            }
-        }
+        
 
 
 
@@ -802,10 +863,13 @@ private:
 
     // particle data
     std::vector<int>   _type;     // type
-    std::vector<Vec2f> _pos;      // position
-    std::vector<Vec2f> _pred_pos; // predicted position
+    std::vector<Vec2f> _pos;
+    float* flatten_pos;// position
+    std::vector<Vec2f> _pred_pos;
+    float* flatten_pred_pos;// predicted position
     std::vector<Vec2f> _dp;       // position shift
     std::vector<Vec2f> _vel;      // velocity
+    float* flatten_vel;
     std::vector<Vec2f> _acc;      // acceleration
     std::vector<Real>  _p;        // pressure
     std::vector<Real>  _lambda;        // density constraint
@@ -1098,17 +1162,24 @@ int main(int argc, char** argv)
     if (success != CL_SUCCESS) checkError(success, "probleme when loading kernel");
 
 
-    env.computeLambda = clCreateKernel(env.program, "computeLambda", NULL);
+    env.computeLambda = clCreateKernel(env.program, "computeLambda", &success);
+    if (success != CL_SUCCESS) checkError(success, "probleme when loading kernel");
 
-    env.computeDp = clCreateKernel(env.program, "computeDp", NULL);
+    env.computeDp = clCreateKernel(env.program, "computeDp", &success);
+    if (success != CL_SUCCESS) checkError(success, "probleme when loading kernel");
 
-    env.updatePrediction = clCreateKernel(env.program, "updatePrediction", NULL);
+    env.updatePrediction = clCreateKernel(env.program, "updatePrediction", &success);
+    if (success != CL_SUCCESS) checkError(success, "probleme when loading kernel");
 
-    env.updateVelocity = clCreateKernel(env.program, "updateVelocity", NULL);
+    env.updateVelocity = clCreateKernel(env.program, "updateVelocity", &success);
+    if (success != CL_SUCCESS) checkError(success, "probleme when loading kernel");
 
-    env.coputeVorticity = clCreateKernel(env.program, "computeVorticity", NULL);
+    env.coputeVorticity = clCreateKernel(env.program, "computeVorticity", &success);
+    if (success != CL_SUCCESS) checkError(success, "probleme when loading kernel");
 
-    env.applyViscousForce = clCreateKernel(env.program, "applyViscousForce", NULL);
+    env.applyViscousForce = clCreateKernel(env.program, "applyViscousForce", &success);
+    if (success != CL_SUCCESS) checkError(success, "probleme when loading kernel");
+
     /*************************************END OF GPU INIT ****************************************************/
 
 
