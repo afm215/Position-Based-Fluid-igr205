@@ -183,7 +183,7 @@ public:
  
         for (int j = 0; j < res_y; ++j) {
             for (int i = 0; i < res_x; ++i) {
-                if (j == 0) {
+                if (j == 0 && i !=0) {
                     _pos.push_back(Vec2f(i, j + 0.8));
                     _pred_pos.push_back(Vec2f(i, j + 0.8));
                     _type.push_back(0);   // solid
@@ -191,7 +191,7 @@ public:
                     _pred_pos.push_back(Vec2f(i+0.5, j + 0.8));
                     _type.push_back(0);   // solid
                 }
-                if (i == 0) {
+                if (i == 0 && j !=0) {
                     _pos.push_back(Vec2f(i + 0.8, j ));
                     _pred_pos.push_back(Vec2f(i + 0.8, j));
                     _type.push_back(0);   // solid
@@ -753,9 +753,9 @@ private:
 #pragma omp parallel for
         for (tIndex i = 0; i < particleCount(); ++i) {
             if (_type[i] != 1) {
-                _col[i * 4 + 0] = 0.8;
-                _col[i * 4 + 1] = 0.8;
-                _col[i * 4 + 2] = 0.8;
+                _col[i * 4 + 0] = 0.2;
+                _col[i * 4 + 1] = 0.2;
+                _col[i * 4 + 2] = 0.2;
             }
             else {
                 _col[i * 4 + 0] = 0.6;
@@ -926,7 +926,7 @@ void initOpenGL()
 
 void init()
 {
-    gSolver.initScene(MAX_X+1, MAX_Y+1, 10, 20);
+    gSolver.initScene(MAX_X+1, MAX_Y+1, 20, 10);
 
     initGLFW();                   // Windowing system
     initOpenGL();
@@ -1035,7 +1035,7 @@ void update(const float currentTime)
         double end = timer.tv_nsec * pow(10, -9) + timer.tv_sec;
         //std::cout << "Delay of one update" << end - start << std::endl;
         _dt = end - start;
-        WALL_X = MAX_X - 6 + 5 * sin(end);
+        WALL_X = MAX_X - 6 + 5 * sin(end/2);
     }
 }
 
