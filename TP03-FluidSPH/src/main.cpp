@@ -59,7 +59,7 @@ GLFWwindow* gWindow = nullptr;
 int gWindowWidth = 1024;
 int gWindowHeight = 768;
 
-float MAX_X = 30;
+float MAX_X = 40;
 float MAX_Y = 30;
 float MIN_X = 1;
 float MIN_Y = 1;
@@ -186,26 +186,19 @@ public:
             }
         }
 
-        /*
+ 
         for (int j = 0; j < res_y; ++j) {
             for (int i = 0; i < res_x; ++i) {
                 if (i == 0 || j == 0 || i == res_x - 1 || j == res_y - 1) {
-                    _pos.push_back(Vec2f(i + 0.25, j + 0.25));
-                    _pos.push_back(Vec2f(i + 0.75, j + 0.25));
-                    _pos.push_back(Vec2f(i + 0.25, j + 0.75));
-                    _pos.push_back(Vec2f(i + 0.75, j + 0.75));
-                    _pred_pos.push_back(Vec2f(i + 0.25, j + 0.25));
-                    _pred_pos.push_back(Vec2f(i + 0.75, j + 0.25));
-                    _pred_pos.push_back(Vec2f(i + 0.25, j + 0.75));
-                    _pred_pos.push_back(Vec2f(i + 0.75, j + 0.75));
+                    _pos.push_back(Vec2f(i + 0.5, j + 0.5));
+                    _pred_pos.push_back(Vec2f(i + 0.5, j + 0.5));
                     _type.push_back(0);   // solid
-                    _type.push_back(0);
-                    _type.push_back(0);
-                    _type.push_back(0);
+
                 }
             }
         }
-        */
+
+
         
         //solid bars
         /*
@@ -247,18 +240,6 @@ public:
     void update()
     {
         std::cout << '.' << std::flush;
-
-        /*
-        _pos.push_back(Vec2f(10, 10));
-        _pred_pos.push_back(Vec2f(10, 10));
-        _type.push_back(1);
-        _vel.push_back(Vec2f(0, 0));
-        _acc.push_back(Vec2f(0, 0));
-        _p.push_back(0);
-        _d.push_back(0);
-        _col.push_back(0); // RGBA
-        _vln.push_back(0); // GL_LINES
-        */
 
         // PBF :
         //apply forces v_i <= v_i + Dt * fext(xi) in this case gravity
