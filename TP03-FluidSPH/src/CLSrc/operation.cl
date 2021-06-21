@@ -52,7 +52,7 @@ float2 crossProduct(float2 a, float2 b){
 
 
 
-__kernel void proto(__global const float* neighbours, __global const int* indexes_neighbours, __global const float* positions, __global float* update_pos, __global float* update_vel) {
+__kernel void proto(__global const int* neighbours, __global const int* indexes_neighbours, __global const float* positions, __global float* update_pos, __global float* update_vel) {
 
 
 
@@ -87,7 +87,7 @@ __kernel void proto(__global const float* neighbours, __global const int* indexe
 // remind that everything is float so size(positions)  = 2 * number_points = size(velocities)
 // neighbours is flattened, use indexes to know where are the delimitations of the neighbour arrays
 
-__kernel void computeDensity(__global const float* neighbours, __global const int* indexes_neighbours, __global const float* positions, __global float* _d, float sr, float _m0, int resX, int resY) {
+__kernel void computeDensity(__global const int* neighbours, __global const int* indexes_neighbours, __global const float* positions, __global float* _d, float sr, float _m0, int resX, int resY) {
     float sum_m = 0.f;
     int  i = get_global_id(0);
     const float x= positions[2*i];
@@ -138,7 +138,7 @@ __kernel void computeDensity(__global const float* neighbours, __global const in
 }
 
 
-float2 computeGradCi(int i, int k, float sr, __global const float* positions, __global const float*neighbours, __global const int* indexes_neighbours,  float _d0, int resX, int resY, float _h) {
+float2 computeGradCi(int i, int k, float sr, __global const float* positions, __global const int*neighbours, __global const int* indexes_neighbours,  float _d0, int resX, int resY, float _h) {
 
 
     const float2 xi = (float2)(positions[ 2 * i], positions[2*i + 1]);
@@ -196,7 +196,7 @@ float2 computeGradCi(int i, int k, float sr, __global const float* positions, __
         
 }
 
-__kernel void computeLambda(__global const float* neighbours, __global const int* indexes_neighbours, __global const float* positions, __global const float* _d, __global float* _lambda, float sr, float _d0, int resX, int resY) {
+__kernel void computeLambda(__global const int* neighbours, __global const int* indexes_neighbours, __global const float* positions, __global const float* _d, __global float* _lambda, float sr, float _d0, int resX, int resY) {
     int  i = get_global_id(0);
     float c_i = _d[i] / _d0 - 1;
     _lambda[i] = -c_i;
@@ -252,7 +252,7 @@ __kernel void computeLambda(__global const float* neighbours, __global const int
 }
 
 
-__kernel void computeDp(__global const float* neighbours, __global const int* indexes_neighbours, __global const float* positions, __global const int* _type, __global  const float* _lambda,  __global float2* _dp, float _d0,float _h, int resX, int resY) {
+__kernel void computeDp(__global const int* neighbours, __global const int* indexes_neighbours, __global const float* positions, __global const int* _type, __global  const float* _lambda,  __global float2* _dp, float _d0,float _h, int resX, int resY) {
                 float sr = _h;
                 int  i = get_global_id(0);
                 if (_type[i] != 1) return;
@@ -326,7 +326,7 @@ __kernel void updateVelocity(__global const float* positions,__global const floa
     
 }
 
-float2 compute_w_i(int i,__global const float* neighbours, __global const int* indexes_neighbours , __global const float* positions, global float* _vel, float sr, int resX, int resY){
+float2 compute_w_i(int i,__global const int* neighbours, __global const int* indexes_neighbours , __global const float* positions, global float* _vel, float sr, int resX, int resY){
     float2 xi = (float2) (positions[2 * i], positions[2 * i + 1]);
     float2 result = (float2) (0.f,0.f);
 
@@ -381,7 +381,7 @@ float2 ComputeEta(int i,__global const float* positions, float2 w_i, float sr){
     
     return result;
 }
-__kernel void computeVorticity(__global const float* neighbours, __global const int* indexes_neighbours ,__global const float* positions, __global float* _vel, float _dt, float _m0, float sr, int resX, int resY) {
+__kernel void computeVorticity(__global const int* neighbours, __global const int* indexes_neighbours ,__global const float* positions, __global float* _vel, float _dt, float _m0, float sr, int resX, int resY) {
 
     int  i = get_global_id(0);
     float2 w_i = compute_w_i(i,neighbours, indexes_neighbours, positions, _vel, sr, resX, resY);
@@ -393,7 +393,7 @@ __kernel void computeVorticity(__global const float* neighbours, __global const 
 
 }
 
-__kernel void applyViscousForce(__global const float* neighbours, __global const int* indexes_neighbours ,__global const float* positions,__global const float* _type, __global float* update_vel, float dt, float sr, int resX, int resY) {
+__kernel void applyViscousForce(__global const int* neighbours, __global const int* indexes_neighbours ,__global const float* positions,__global const float* _type, __global float* update_vel, float dt, float sr, int resX, int resY) {
     int  i = get_global_id(0);
     float c =0.001f;
     if (_type[i] != 1) return;

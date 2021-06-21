@@ -129,7 +129,7 @@ public:
         _kernel(h), _nu(nu), _h(h), _d0(density),
         _g(g), _eta(eta), _gamma(gamma)
     {
-        _dt = 0.16;
+        _dt = 0.01;
         _m0 = 1;
         _c = std::fabs(_g.y) / _eta;
         _p0 = _d0 * _c * _c / _gamma;     // k of EOS
@@ -200,6 +200,8 @@ public:
         //    }
         //}
 
+        _type_data = _type.data();
+
         // make sure for the other particle quantities
         _vel = std::vector<Vec2f>(_pos.size(), Vec2f(0, 0));
         flatten_vel = (float*)malloc(2 * _pos.size() * sizeof(float));
@@ -252,8 +254,6 @@ public:
         int* cl_flatten = flattenN.data();
         int* cl_indexes = indexes.data();
 
-        cl_indexes[0] = 42;
-        std::cout << indexes[0] <<std::endl;
         flattenPosVel();
         
 
@@ -276,7 +276,7 @@ public:
 
         
         //int i = 0;
-        gpu_handle(env, NB_IT, flatten_pos,flatten_pred_pos, flatten_vel, _pos.size(), cl_flatten,cl_pGrid_Size, cl_index_size, cl_indexes, resX(), resY(), _h, _m0, _d0);
+        gpu_handle(env, NB_IT, flatten_pos,flatten_pred_pos, flatten_vel,_type_data, _pos.size(), cl_flatten,cl_pGrid_Size, cl_index_size, cl_indexes, resX(), resY(), _h, _m0, _d0, _dt);
         //while (i < NB_IT)
         //{   
         //    
@@ -369,8 +369,8 @@ public:
         #pragma omp parallel for
         for (int i = 0; i < array_size; i++) {
             //normally only pre_pos is updated not pos
-            _pred_pos[i].x = flatten_pred_pos[2 * i];
-            _pred_pos[i].y = flatten_pred_pos[2 * i + 1]; 
+            _pos[i].x = flatten_pred_pos[2 * i];
+            _pos[i].y = flatten_pred_pos[2 * i + 1]; 
 
             _vel[i].x = flatten_vel[2 * i];
             _vel[i].y = flatten_vel[2 * i + 1];
@@ -862,7 +862,8 @@ private:
     CubicSpline _kernel;
 
     // particle data
-    std::vector<int>   _type;     // type
+    std::vector<int>   _type;
+    int* _type_data;// type
     std::vector<Vec2f> _pos;
     float* flatten_pos;// position
     std::vector<Vec2f> _pred_pos;
