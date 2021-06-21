@@ -169,19 +169,14 @@ public:
             for (int i = 0; i < f_width; ++i) {
                 if (i == 0 || j == 0) continue;
                 // offset
-                int I = i + 10;
+                int I = i + 1;
                 int J = j + 1;
                 _pos.push_back(Vec2f(I + 0.25, J + 0.25));
-                _pos.push_back(Vec2f(I + 0.75, J + 0.25));
-                _pos.push_back(Vec2f(I + 0.25, J + 0.75));
                 _pos.push_back(Vec2f(I + 0.75, J + 0.75));
                 _pred_pos.push_back(Vec2f(I + 0.25, J + 0.25));
-                _pred_pos.push_back(Vec2f(I + 0.75, J + 0.25));
-                _pred_pos.push_back(Vec2f(I + 0.25, J + 0.75));
                 _pred_pos.push_back(Vec2f(I + 0.75, J + 0.75));
                 _type.push_back(1);     // fluid
-                _type.push_back(1);
-                _type.push_back(1);
+
                 _type.push_back(1);
             }
         }
@@ -193,13 +188,10 @@ public:
                     _pos.push_back(Vec2f(i + 0.5, j + 0.5));
                     _pred_pos.push_back(Vec2f(i + 0.5, j + 0.5));
                     _type.push_back(0);   // solid
-
                 }
             }
         }
 
-
-        
         //solid bars
         /*
         int br=0;
@@ -924,7 +916,7 @@ void initOpenGL()
 
 void init()
 {
-    gSolver.initScene(MAX_X+1, MAX_Y+1, 10, 10);
+    gSolver.initScene(MAX_X+1, MAX_Y+1, 10, 20);
 
     initGLFW();                   // Windowing system
     initOpenGL();
