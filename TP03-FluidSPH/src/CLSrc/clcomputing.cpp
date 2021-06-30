@@ -2,7 +2,7 @@
 
 #define NOMINMAX //reset namespace of windows.h
 
-int gpu_handle(GpuEnvironnment env, int numberiteration, const float* _pos, float* predpos, float* _vel, const int* _type, const int number_of_point, const int* cl_flatten, const int pGrid_Size, const int index_size, const int* flattened_indexes, const int sizeX, const int sizeY, float _h, float _m0, float _d0, float _dt) {
+int gpu_handle(GpuEnvironnment env, int numberiteration, const float* _pos, const float* predpos, const float* _vel, const int* _type, const int number_of_point, const int* cl_flatten, const int pGrid_Size, const int index_size, const int* flattened_indexes, float* pos_output, float* vel_output, const int sizeX, const int sizeY, const float _h, const float _m0, const float _d0, const float _dt, const bool debug){
 
     //std::cout << "one entering in the filter function size of the ouput :"<< size <<std::endl;
 
@@ -15,7 +15,9 @@ int gpu_handle(GpuEnvironnment env, int numberiteration, const float* _pos, floa
     cl_mem _dp;
     cl_mem _lambda;
     cl_mem cl_type;
+    cl_mem w_i_field;
 
+    int debug_to_int = debug;
 
 
     int status;
@@ -48,6 +50,9 @@ int gpu_handle(GpuEnvironnment env, int numberiteration, const float* _pos, floa
 
     _dp = clCreateBuffer(env.context, CL_MEM_READ_WRITE, number_of_point * sizeof(cl_float2), NULL, &status);
     checkError(status, "Failed to create buffer for dp");
+
+    w_i_field = clCreateBuffer(env.context, CL_MEM_READ_WRITE, number_of_point * sizeof(float), NULL, &status);
+    checkError(status, "Failed to create buffer for lambda");
 
 
 
@@ -88,7 +93,7 @@ int gpu_handle(GpuEnvironnment env, int numberiteration, const float* _pos, floa
 
     int i = 0;
     while (i < numberiteration) {
-        //compute Lambda
+        //compute Density
         argi = 0;
         status = clSetKernelArg(env.computeDensity, argi++, sizeof(cl_mem), &neighbour_buff);
         checkError(status, "Failed to set argument Density");
@@ -119,24 +124,26 @@ int gpu_handle(GpuEnvironnment env, int numberiteration, const float* _pos, floa
         global_work_size, NULL, 4, write_event, &kernel_event);
         checkError(status, "Failed to launch Density kernel");
 
-        clWaitForEvents(1, &kernel_event);
+        status= clWaitForEvents(1, &kernel_event);
+        checkError(status, "Failed to launch Density kernel");
+
         // Read the result. This the final operation.
 
         //DEBUG stuff
-        /*float* tmp_denisty = (float*)malloc(sizeof(float) * number_of_point);
+        float* tmp_denisty = (float*)malloc(sizeof(float) * number_of_point);
         status = clEnqueueReadBuffer(env.queue, _d, CL_TRUE,
         0, sizeof(float) * number_of_point, tmp_denisty, 1, &kernel_event, &finish_event);
         checkError(status, "Failed to read output buffer");
+
+        std::vector<float > test_vetcor_dens = std::vector<float>(tmp_denisty, tmp_denisty + number_of_point );
+
+        tmp_denisty = nullptr;
        
-        for (int i = 0; i < number_of_point; i++) {
-            std::cout << tmp_denisty[i] << std::endl;
-        }*/
-        
+        //free(tmp_denisty);
 
 
 
-
-    //clWaitForEvents(1, &finish_event);
+    clWaitForEvents(1, &finish_event);
 
 
     //compute lambda
@@ -177,14 +184,15 @@ int gpu_handle(GpuEnvironnment env, int numberiteration, const float* _pos, floa
     clWaitForEvents(1, &kernel_event);
 
     //DEBUG stuff
-       /*float* tmp_lambda = (float*)malloc(sizeof(float) * number_of_point);
+       float* tmp_lambda = (float*)malloc(sizeof(float) * number_of_point);
         status = clEnqueueReadBuffer(env.queue, _lambda, CL_TRUE,
         0, sizeof(float) * number_of_point, tmp_lambda, 1, &kernel_event, &finish_event);
         checkError(status, "Failed to read output buffer");
 
-        for (int i = 0; i < number_of_point; i++) {
-            std::cout << tmp_lambda[i] << std::endl;
-        }*/
+        clWaitForEvents(1, &finish_event);
+
+        std::vector<float > test_vetcor_lambda = std::vector<float>(tmp_lambda, tmp_lambda + number_of_point);
+
 
 
 
@@ -226,6 +234,10 @@ int gpu_handle(GpuEnvironnment env, int numberiteration, const float* _pos, floa
     status = clSetKernelArg(env.computeDp, argi++, sizeof(int), &sizeY);
     checkError(status, "Failed to set argument Dp");
 
+    status = clSetKernelArg(env.computeDp, argi++, sizeof(int), &debug_to_int);
+    checkError(status, "Failed to set argument Dp");
+
+
 
     status = clEnqueueNDRangeKernel(env.queue, env.computeDp, 1, NULL,
         global_work_size, NULL, 1, &kernel_event, &kernel_event);
@@ -233,16 +245,19 @@ int gpu_handle(GpuEnvironnment env, int numberiteration, const float* _pos, floa
 
     clWaitForEvents(1, &kernel_event);
 
-    /*float* tmp_dp = (float*)malloc(sizeof(float) * number_of_point);
+
+
+    cl_float2* tmp_dp = (cl_float2*)malloc(sizeof(cl_float2 ) * number_of_point);
     status = clEnqueueReadBuffer(env.queue, _dp, CL_TRUE,
-        0, sizeof(float) * number_of_point, tmp_dp, 1, &kernel_event, &finish_event);
+        0, sizeof(cl_float2) * number_of_point, tmp_dp, 1, &kernel_event, &finish_event);
     checkError(status, "Failed to read output buffer");
 
-    for (int i = 0; i < number_of_point; i++) {
-        std::cout << tmp_dp[i] << std::endl;
-    }
+    
 
-    clWaitForEvents(1, &finish_event);*/
+    clWaitForEvents(1, &finish_event);
+
+    std::vector<cl_float2 > test_vetcor_dp = std::vector<cl_float2>(tmp_dp, tmp_dp + number_of_point);
+
 
     //update Prediction
 
@@ -309,7 +324,44 @@ int gpu_handle(GpuEnvironnment env, int numberiteration, const float* _pos, floa
     checkError(status, "Failed to launch Velocity kernel");
 
     clWaitForEvents(1, &kernel_event);
-    //compute Vorticity
+    //compute Vorticity field
+    argi = 0;
+
+    status = clSetKernelArg(env.compute_w_i, argi++, sizeof(cl_mem), &neighbour_buff);
+    checkError(status, "Failed to set argument Vorticity field");
+
+    status = clSetKernelArg(env.compute_w_i, argi++, sizeof(cl_mem), &index_buffers);
+    checkError(status, "Failed to set argument Vorticity field");
+
+    status = clSetKernelArg(env.compute_w_i, argi++, sizeof(cl_mem), &output_pos);
+    checkError(status, "Failed to set argument Vorticity field");
+
+    status = clSetKernelArg(env.compute_w_i, argi++, sizeof(cl_mem), &output_vel);
+    checkError(status, "Failed to set argument Vorticity field");
+
+    status = clSetKernelArg(env.compute_w_i, argi++, sizeof(cl_mem), &w_i_field);
+    checkError(status, "Failed to set argument Vorticity field");
+
+
+    status = clSetKernelArg(env.compute_w_i, argi++, sizeof(float), &_h);
+    checkError(status, "Failed to set argument Vorticity field");
+
+    status = clSetKernelArg(env.compute_w_i, argi++, sizeof(int), &sizeX);
+    checkError(status, "Failed to set argument Vorticity field");
+
+    status = clSetKernelArg(env.compute_w_i, argi++, sizeof(int), &sizeY);
+    checkError(status, "Failed to set argument Vorticity field");
+
+
+
+
+    status = clEnqueueNDRangeKernel(env.queue, env.compute_w_i, 1, NULL,
+        global_work_size, NULL, 1, &kernel_event, &kernel_event);
+    checkError(status, "Failed to launch Vorticity field kernel");
+
+    clWaitForEvents(1, &kernel_event);
+    //compute Vorticity forces
+
 
     argi = 0;
     status = clSetKernelArg(env.coputeVorticity, argi++, sizeof(cl_mem), &neighbour_buff);
@@ -322,6 +374,9 @@ int gpu_handle(GpuEnvironnment env, int numberiteration, const float* _pos, floa
     checkError(status, "Failed to set argument Vorticity");
 
     status = clSetKernelArg(env.coputeVorticity, argi++, sizeof(cl_mem), &output_vel);
+    checkError(status, "Failed to set argument Vorticity");
+
+    status = clSetKernelArg(env.coputeVorticity, argi++, sizeof(cl_mem), &w_i_field);
     checkError(status, "Failed to set argument Vorticity");
 
     status = clSetKernelArg(env.coputeVorticity, argi++, sizeof(float), &_dt);
@@ -346,6 +401,9 @@ int gpu_handle(GpuEnvironnment env, int numberiteration, const float* _pos, floa
 
     clWaitForEvents(1, &kernel_event);
 
+
+
+
     //compute viscous Forces
 
     argi = 0;
@@ -364,9 +422,6 @@ int gpu_handle(GpuEnvironnment env, int numberiteration, const float* _pos, floa
     status = clSetKernelArg(env.applyViscousForce, argi++, sizeof(cl_mem), &output_vel);
     checkError(status, "Failed to set argument Viscosity");
 
-    status = clSetKernelArg(env.applyViscousForce, argi++, sizeof(float), &_dt);
-    checkError(status, "Failed to set argument Viscosity");
-
     status = clSetKernelArg(env.applyViscousForce, argi++, sizeof(float), &_h);
     checkError(status, "Failed to set argument Viscosity");
 
@@ -383,26 +438,26 @@ int gpu_handle(GpuEnvironnment env, int numberiteration, const float* _pos, floa
 
     clWaitForEvents(1, &kernel_event);
     
+   
+
+
+    
 
     status = clEnqueueReadBuffer(env.queue, output_pos, CL_TRUE,
-        0, sizeof(float) * number_of_point, predpos, 1, &kernel_event, &finish_event);
+        0, 2 * sizeof(float) * number_of_point, pos_output, 1, &kernel_event, &finish_event);
     checkError(status, "Failed to write output pos buffer");
     clWaitForEvents(1, &finish_event);
 
-    /*for (int i = 0; i < number_of_point * 2; i++) {
-        std::cout << predpos[i] - _pos[i] << std::endl;
-    }*/
+  
 
     /*std::cout << "shuuuuuuuuut" << std::endl;*/
 
     status = clEnqueueReadBuffer(env.queue, output_vel, CL_TRUE,
-        0, sizeof(float) * number_of_point, _vel, 1, &finish_event, &finish_event);
+        0, 2 * sizeof(float) * number_of_point, vel_output, 1, &finish_event, &finish_event);
     checkError(status, "Failed to write output vel buffer");
     clWaitForEvents(1, &finish_event);
 
-   /* for (int i = 0; i < number_of_point * 2; i++) {
-        std::cout << _vel[i] << std::endl;
-    }*/
+    
 
 
 
@@ -447,8 +502,21 @@ int gpu_handle(GpuEnvironnment env, int numberiteration, const float* _pos, floa
 
 
     //clWaitForEvents(1, &finish_event);
-   /* status = clFinish(env.queue);
-    checkError(status, "Queue not finished");*/
+   status = clFinish(env.queue);
+    checkError(status, "Queue not finished");
+
+    if (debug == 1) {
+
+
+        for (int i = 0; i < number_of_point * 2; i++) {
+            if (vel_output[i] != _vel[i]) {
+                std::cout << vel_output[i] - _vel[i] << "_vel : "<< _vel[i] << "update vel: " <<  vel_output[i] << std::endl;
+            }
+
+
+        }
+
+    }
 
     //// Release local events.
     clReleaseEvent(write_event[0]);
@@ -490,6 +558,9 @@ int gpu_handle(GpuEnvironnment env, int numberiteration, const float* _pos, floa
 
     status = clReleaseMemObject(cl_type);
     checkError(status, "Failed to clean type buff");
+
+    status = clReleaseMemObject(w_i_field);
+    checkError(status, "Failed to clean w_i buff");
 
     
 

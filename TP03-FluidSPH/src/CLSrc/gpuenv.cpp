@@ -79,7 +79,7 @@ void print_clbuild_errors(cl_program program, cl_device_id device)
 {
 	std::cout << "Program Build failed\n";
 	size_t length;
-	char buffer[8048];
+	char buffer[16048];
 	clGetProgramBuildInfo(program, device, CL_PROGRAM_BUILD_LOG, sizeof(buffer), buffer, &length);
 	std::cout << "--- Build log ---\n " << buffer << std::endl;
 	exit(1);

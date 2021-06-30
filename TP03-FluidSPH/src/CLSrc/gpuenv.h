@@ -13,6 +13,7 @@ public:
 	cl_kernel computeDp; 
 	cl_kernel updatePrediction; 
 	cl_kernel updateVelocity; 
+	cl_kernel compute_w_i;
 	cl_kernel coputeVorticity; 
 	cl_kernel applyViscousForce;
 

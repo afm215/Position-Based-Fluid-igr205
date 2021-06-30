@@ -15,8 +15,13 @@
 // agreement/contract under which the program(s) have been supplied.
 // ----------------------------------------------------------------------------
 #define CLOCK_REALTIME 0
+
+#define debugGpu 1
 #include <assert.h> 
 #define NOMINMAX //reset namespace of windows.h
+
+
+bool debug = false;
 
 #include "CLSrc/gpuenv.h"
 
@@ -82,7 +87,7 @@ public:
     {
         const Real h2 = square(h), h3 = h2 * h;
         _h = h;
-        _sr = 2e0 * h;
+        _sr = h;
         _c[0] = 2e0 / (3e0 * h);
         _c[1] = 10e0 / (7e0 * M_PI * h2);
         _c[2] = 1e0 / (M_PI * h3);
@@ -129,7 +134,7 @@ public:
         _kernel(h), _nu(nu), _h(h), _d0(density),
         _g(g), _eta(eta), _gamma(gamma)
     {
-        _dt = 0.01;
+        _dt = 0.16;
         _m0 = 1;
         _c = std::fabs(_g.y) / _eta;
         _p0 = _d0 * _c * _c / _gamma;     // k of EOS
@@ -201,6 +206,8 @@ public:
         //}
 
         _type_data = _type.data();
+        
+        
 
         // make sure for the other particle quantities
         _vel = std::vector<Vec2f>(_pos.size(), Vec2f(0, 0));
@@ -234,6 +241,8 @@ public:
         applyPhysicalConstraints();
         buildNeighbor();
 
+
+#ifdef debugGpu 
         tIndex test = 0;
         int yo = test;
         int  index_size = _pidxInGrid.size();
@@ -254,8 +263,10 @@ public:
         int* cl_flatten = flattenN.data();
         int* cl_indexes = indexes.data();
 
+
         flattenPosVel();
-        
+
+
 
 
         /*for (int i = 0; i < index_size; i++) {
@@ -274,31 +285,62 @@ public:
             }
         }*/
 
-        
-        //int i = 0;
-        gpu_handle(env, NB_IT, flatten_pos,flatten_pred_pos, flatten_vel,_type_data, _pos.size(), cl_flatten,cl_pGrid_Size, cl_index_size, cl_indexes, resX(), resY(), _h, _m0, _d0, _dt);
-        //while (i < NB_IT)
-        //{   
-        //    
-        //    //compute lambda_i 
-        //    //computeLambda use the comutegradCi function wich use the density of the paricles 
-        //    computeDensity();
-        //    computeLambda();
-        //    //calculate the difference in positions using the lamba_i
-        //    computeDp();
-        //    //update the position p_i* = p_i* + dp_i
-        //    updatePrediction();
-        //    //applyPhysicalConstraints();
 
-        //    i++;
-        //}
+        //opencl doesn't override apprently the values so you must define an output vector
+        float* output[2];
+        output[0] = (float*)malloc(sizeof(float) * 2 * _pos.size());
+        output[1] = (float*)malloc(sizeof(float) * 2 * _pos.size());
+
+        gpu_handle(env, NB_IT, flatten_pos, flatten_pred_pos, flatten_vel, _type_data, _pos.size(), cl_flatten, cl_pGrid_Size, cl_index_size, cl_indexes, output[0], output[1], resX(), resY(), _h, _m0, _d0, _dt, debug);
+
+        free(flatten_pred_pos);
+        flatten_pred_pos = output[0];
+
+        free(flatten_vel);
+        flatten_vel = output[1];
+
+
+
+#endif
+        
+
+#ifndef debugGpu
+
+
+
+        int i = 0;
+        
+
+
+        
+       while (i < NB_IT)
+        {   
+            
+            //compute lambda_i 
+            //computeLambda use the comutegradCi function wich use the density of the paricles 
+            computeDensity();
+            computeLambda();
+            //calculate the difference in positions using the lamba_i
+            computeDp();
+            //update the position p_i* = p_i* + dp_i
+            updatePrediction();
+            //applyPhysicalConstraints();
+
+            i++;
+       }
         ////update the velocities v_i = p_i* - p_i 
-        //updateVelocity();
-        //computeVorticity();
-        //applyViscousForce();
+        updateVelocity();
+       // computeVorticity();
+        applyViscousForce();
         // use the newly computed velocities to compute vorticity confinement and XSPH viscosity TO DO !!!
         
-        updatePosVelFromFlat();
+#endif // !debugGpu
+
+
+# ifdef debugGpu)
+            updatePosVelFromFlat();
+
+#endif
         //no need to free the flatten indexes as everything is passed by reference;
         
 
@@ -309,7 +351,7 @@ public:
 
 
         updateColor();
-        /*if (gShowVel) updateVelLine();*/
+        if (gShowVel) updateVelLine();
 
 
         /*
@@ -372,6 +414,9 @@ public:
             _pos[i].x = flatten_pred_pos[2 * i];
             _pos[i].y = flatten_pred_pos[2 * i + 1]; 
 
+            _pred_pos[i].x = flatten_pred_pos[2 * i];
+            _pred_pos[i].y = flatten_pred_pos[2 * i + 1];
+
             _vel[i].x = flatten_vel[2 * i];
             _vel[i].y = flatten_vel[2 * i + 1];
         }
@@ -421,8 +466,8 @@ private:
             if (_type[i] == 1)
             {
                 Vec2f pos = _pred_pos[i];
-                if (pos.x < 1) { _pred_pos[i].x = 1; /* _vel[i].x = 0*/  -_vel[i].x; }
-                if (pos.x > resX() - 1) { _pred_pos[i].x = resX()-1; /*_vel[i].x = 0*/  -_vel[i].x; }
+                if (pos.x < 1) { _pred_pos[i].x = 1 ;  _vel[i].x =   -_vel[i].x; }
+                if (pos.x > resX() - 1) { _pred_pos[i].x = resX()-1; _vel[i].x = -_vel[i].x; }
                 if (pos.y < 1) { _pred_pos[i].y = 1; /*_vel[i].y = 0*/ _vel[i].y = -_vel[i].y; }
                 if (pos.y > resY() - 1 ) { _pred_pos[i].y = resY() - 1; /*_vel[i].y = 0*/_vel[i].y = -_vel[i].y; }
             }
@@ -438,7 +483,7 @@ private:
 
 
 
-        const Real sr = _kernel.supportRadius();
+        const Real sr =_h;
         int nb_null = 0;
 #pragma omp parallel for
         for (tIndex i = 0; i < particleCount(); ++i) {
@@ -492,7 +537,7 @@ private:
 
 
         const Vec2f& xi = position(i);
-        const Real sr = _kernel.supportRadius();
+        const Real sr = _h;
         Vec2f result = Vec2f(0, 0);
 
         Vec2f p_i = position(i);
@@ -538,7 +583,7 @@ private:
 
     Vec2f compute_w_i(int i){
         const Vec2f& xi = position(i);
-        const Real sr = _kernel.supportRadius();
+        const Real sr = _h;
         Vec2f result = Vec2f(0, 0);
 
 
@@ -567,15 +612,13 @@ private:
                 }
             }
         }
-
        return result;
        
     }
 
     Vec2f ComputeEta(int i , Vec2f wi) {
-        const Vec2f& xi = position(i);
 
-        const Real sr = _kernel.supportRadius();
+        const Real sr = _h;
 
        /* const int gi_from = static_cast<int>(xi.x - sr);
         const int gi_to = static_cast<int>(xi.x + sr) + 1;
@@ -603,6 +646,7 @@ private:
         result = _kernel.grad_w(wi);
         assert(!isnan(result.x) && !isnan(result.y));
         assert(abs(result.x) != inf && abs(result.y) != inf);
+
         return result;
     }
 
@@ -611,8 +655,13 @@ private:
         for (tIndex i = 0; i < particleCount(); i++) {
             Vec2f w_i = compute_w_i(i);
             Vec2f N = ComputeEta(i, w_i);
+
             N = N.normalize();
-            _vel[i] += _dt /  _m0 * SPH_EPSILON * N.crossProduct(w_i);
+            
+
+            Vec2f before = _vel[i];
+            float vi =  _dt / _m0 * 1.f * N.crossProduct(w_i);
+            _vel[i] += vi;
             assert(!isnan(_vel[i].x) && !isnan(_vel[i].y));
         }
     }
@@ -620,7 +669,7 @@ private:
 
     void computeLambda()
     {
-        const Real sr = _kernel.supportRadius();
+        const Real sr = _h;
 #pragma omp parallel for
         for (tIndex i = 0; i < particleCount(); ++i) {
 
@@ -630,7 +679,6 @@ private:
             
 
             Real sumnormgradCi = 0;
-            Vec2f grad_sum = Vec2f(0);
 
             Vec2f p_i = position(i);
             
@@ -648,7 +696,6 @@ private:
 
                     for (size_t ni = 0; ni < _pidxInGrid[gidx].size(); ++ni) {
 
-                        Vec2f gradCi = computeGradCi(i, _pidxInGrid[gidx][ni]);
                         tIndex j = _pidxInGrid[gidx][ni];
                         /*auto j = _pidxInGrid[gidx][ni];
                         Vec2f xj = position(j);
@@ -657,6 +704,8 @@ private:
                         
                         grad_sum += gradCi;*/
                         if (i == j) continue;
+                        Vec2f gradCi = computeGradCi(i, _pidxInGrid[gidx][ni]);
+
                         sumnormgradCi += gradCi.dotProduct(gradCi);
 
                     }
@@ -667,6 +716,7 @@ private:
 
             _lambda[i] /= (sumnormgradCi + SPH_EPSILON);
 
+
          
         }
     }
@@ -676,7 +726,7 @@ private:
     void computeDp()
     {
         
-        const Real sr = _kernel.supportRadius();
+        const Real sr = _h;
         Real dq = 0.3 ;
 
 #pragma omp parallel for
@@ -705,13 +755,13 @@ private:
                         const Vec2f& xj = position(j);
                         const Vec2f xij = xi - xj;
                        
-                        Real scorr =  -0.001f * pow(_kernel.w(xij) / _kernel.w(dq), 4);
+                        Real scorr = 0;//-0.001f * pow(_kernel.w(xij) / _kernel.w(dq), 4);
                         sum_grad_p += (_lambda[i]+ _lambda[j] + scorr)*_kernel.grad_w(xij);
                     }
                 }
             }
 
-            _dp[i] = sum_grad_p / _d0;   // TODO pas sur du tout changmeent pour debug 
+            _dp[i] =  sum_grad_p / _d0;   // TODO pas sur du tout changmeent pour debug 
         }
     }
 
@@ -734,7 +784,7 @@ private:
     
     void applyViscousForce()
     {
-        const Real sr = _kernel.supportRadius();
+        const Real sr = _h;
         Real c = 0.001;
 
 #pragma omp parallel for
@@ -769,7 +819,9 @@ private:
                 }
             }
 
+
             _vel[i] += c * sum_acc;
+
             //assert(!isnan(_vel[i].x) && !isnan(_vel[i].y));
 
         }
@@ -846,7 +898,7 @@ private:
         }
     }
 
-   /* void updateVelLine()
+    void updateVelLine()
     {
 #pragma omp parallel for
         for (tIndex i = 0; i < particleCount(); ++i) {
@@ -855,7 +907,7 @@ private:
             _vln[i * 4 + 2] = _pos[i].x + _vel[i].x;
             _vln[i * 4 + 3] = _pos[i].y + _vel[i].y;
         }
-    }*/
+    }
 
     inline tIndex idx1d(const int i, const int j) { return i + j * resX(); }
 
@@ -902,7 +954,7 @@ private:
     Real _gamma;                  // EOS power factor
 };
 
-SphSolver gSolver(80, 1.2, 3, Vec2f(0, -9.8), 0.01, 7.0);
+SphSolver gSolver(80, 1.2, 1, Vec2f(0, -9.8), 0.01, 7.0);
 
 void printHelp()
 {
@@ -933,6 +985,10 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
 {
     if (action == GLFW_PRESS && key == GLFW_KEY_H) {
         printHelp();
+    }
+    if (action == GLFW_PRESS && key == GLFW_KEY_D) {
+        debug = !debug;
+
     }
     else if (action == GLFW_PRESS && key == GLFW_KEY_S) {
         gSaveFile = !gSaveFile;
@@ -1015,7 +1071,7 @@ void initOpenGL()
 
 void init()
 {
-    gSolver.initScene(30, 40, 10, 10);
+    gSolver.initScene(50, 70, 20, 20);
 
     initGLFW();                   // Windowing system
     initOpenGL();
@@ -1173,6 +1229,9 @@ int main(int argc, char** argv)
     if (success != CL_SUCCESS) checkError(success, "probleme when loading kernel");
 
     env.updateVelocity = clCreateKernel(env.program, "updateVelocity", &success);
+    if (success != CL_SUCCESS) checkError(success, "probleme when loading kernel");
+
+    env.compute_w_i = clCreateKernel(env.program, "compute_w_i", &success);
     if (success != CL_SUCCESS) checkError(success, "probleme when loading kernel");
 
     env.coputeVorticity = clCreateKernel(env.program, "computeVorticity", &success);
