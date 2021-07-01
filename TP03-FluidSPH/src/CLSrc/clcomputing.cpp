@@ -2,7 +2,7 @@
 
 #define NOMINMAX //reset namespace of windows.h
 
-int gpu_handle(GpuEnvironnment env, int numberiteration, const float* _pos, const float* predpos, const float* _vel, const int* _type, const int number_of_point, const int* cl_flatten, const int pGrid_Size, const int index_size, const int* flattened_indexes, float* pos_output, float* vel_output, const int sizeX, const int sizeY, const float _h, const float _m0, const float _d0, const float _dt, const bool debug){
+int gpu_handle(GpuEnvironnment env, int numberiteration, const float* _pos, const float* predpos, const float* _vel, const int* _type, const int number_of_point, const int* cl_flatten, const int pGrid_Size, const int index_size, const int* flattened_indexes, float* pos_output, float* vel_output, const int sizeX, const int sizeY, const float _h, const float _m0, const float _d0, const float _dt, const float MIN_X, const float MIN_Y, const float WALL_X, const float MAX_Y, const bool debug){
 
     //std::cout << "one entering in the filter function size of the ouput :"<< size <<std::endl;
 
@@ -280,6 +280,34 @@ int gpu_handle(GpuEnvironnment env, int numberiteration, const float* _pos, cons
 
     clWaitForEvents(1, &kernel_event);
 
+    //apply Physical Constraint
+    argi = 0;
+    status = clSetKernelArg(env.applyPhysicallConstraint, argi++, sizeof(cl_mem), &output_pos);
+    checkError(status, "Failed to set argument PhysicallConstraint");
+
+    status = clSetKernelArg(env.applyPhysicallConstraint, argi++, sizeof(cl_mem), &cl_type);
+    checkError(status, "Failed to set argument PhysicallConstraint");
+
+    status = clSetKernelArg(env.applyPhysicallConstraint, argi++, sizeof(float), &MIN_X);
+    checkError(status, "Failed to set argument PhysicallConstraint");
+
+    status = clSetKernelArg(env.applyPhysicallConstraint, argi++, sizeof(float), &MIN_Y);
+    checkError(status, "Failed to set argument PhysicallConstraint");
+
+    status = clSetKernelArg(env.applyPhysicallConstraint, argi++, sizeof(float), &WALL_X);
+    checkError(status, "Failed to set argument PhysicallConstraint");
+
+    status = clSetKernelArg(env.applyPhysicallConstraint, argi++, sizeof(float), &MAX_Y);
+    checkError(status, "Failed to set argument PhysicallConstraint");
+
+
+
+
+    status = clEnqueueNDRangeKernel(env.queue, env.applyPhysicallConstraint, 1, NULL,
+        global_work_size, NULL, 1, &kernel_event, &kernel_event);
+    checkError(status, "Failed to launch PhysicallConstraint kernel");
+
+    clWaitForEvents(1, &kernel_event);
 
     /*float* tmp_pred = (float*)malloc(sizeof(float) * number_of_point);
     status = clEnqueueReadBuffer(env.queue, _dp, CL_TRUE,
@@ -336,6 +364,9 @@ int gpu_handle(GpuEnvironnment env, int numberiteration, const float* _pos, cons
     status = clSetKernelArg(env.compute_w_i, argi++, sizeof(cl_mem), &output_pos);
     checkError(status, "Failed to set argument Vorticity field");
 
+    status = clSetKernelArg(env.compute_w_i, argi++, sizeof(cl_mem), &cl_type);
+    checkError(status, "Failed to set argument Vorticity field");
+
     status = clSetKernelArg(env.compute_w_i, argi++, sizeof(cl_mem), &output_vel);
     checkError(status, "Failed to set argument Vorticity field");
 
@@ -371,6 +402,9 @@ int gpu_handle(GpuEnvironnment env, int numberiteration, const float* _pos, cons
     checkError(status, "Failed to set argument Vorticity");
 
     status = clSetKernelArg(env.coputeVorticity, argi++, sizeof(cl_mem), &output_pos);
+    checkError(status, "Failed to set argument Vorticity");
+
+    status = clSetKernelArg(env.coputeVorticity, argi++, sizeof(cl_mem), &cl_type);
     checkError(status, "Failed to set argument Vorticity");
 
     status = clSetKernelArg(env.coputeVorticity, argi++, sizeof(cl_mem), &output_vel);

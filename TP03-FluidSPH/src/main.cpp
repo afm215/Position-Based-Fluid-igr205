@@ -16,7 +16,7 @@
 // ----------------------------------------------------------------------------
 #define CLOCK_REALTIME 0
 
-//#define debugGpu 1
+#define debugGpu 1
 #include <assert.h> 
 #define NOMINMAX //reset namespace of windows.h
 
@@ -58,6 +58,12 @@ GpuEnvironnment env;
 GLFWwindow* gWindow = nullptr;
 int gWindowWidth = 1024;
 int gWindowHeight = 768;
+
+float MAX_X = 160;
+float MAX_Y = 160;
+float MIN_X = 1;
+float MIN_Y = 1;
+float WALL_X = MAX_X;
 
 // timer
 float gAppTimer = 0.0;
@@ -134,7 +140,7 @@ public:
         _kernel(h), _nu(nu), _h(h), _d0(density),
         _g(g), _eta(eta), _gamma(gamma)
     {
-        _dt = 0.16;
+        _dt = 0.02;
         _m0 = 1;
         _c = std::fabs(_g.y) / _eta;
         _p0 = _d0 * _c * _c / _gamma;     // k of EOS
@@ -162,48 +168,63 @@ public:
             for (int i = 0; i < f_width; ++i) {
                 if (i == 0 || j == 0) continue;
                 // offset
-                int I = i + 10;
+                int I = i + 1;
                 int J = j + 20;
                 _pos.push_back(Vec2f(I + 0.25, J + 0.25));
-                _pos.push_back(Vec2f(I + 0.75, J + 0.25));
-                _pos.push_back(Vec2f(I + 0.25, J + 0.75));
-                _pos.push_back(Vec2f(I + 0.75, J + 0.75));
-                //_pos.push_back(Vec2f(I + 0.5, J + 0.5));
+                //_pos.push_back(Vec2f(I + 0.75, J + 0.75));
                 _pred_pos.push_back(Vec2f(I + 0.25, J + 0.25));
-                _pred_pos.push_back(Vec2f(I + 0.75, J + 0.25));
-                _pred_pos.push_back(Vec2f(I + 0.25, J + 0.75));
-                _pred_pos.push_back(Vec2f(I + 0.75, J + 0.75));
-                //_pred_pos.push_back(Vec2f(I + 0.5, J + 0.5));
-                _type.push_back(1);     // fluid
-                _type.push_back(1);
-                _type.push_back(1);
+                //_pred_pos.push_back(Vec2f(I + 0.75, J + 0.75));
+               // _type.push_back(1);     // fluid
                 _type.push_back(1);
             }
         }
 
-         //solid
-        //for (int j = 0; j < res_y; ++j) {
-        //    for (int i = 0; i < res_x; ++i) {
-        //        if (i == 0 || j == 0 || i == res_x - 1 || j == res_y - 1) {
-        //            _pos.push_back(Vec2f(i + 0.25, j + 0.25));
-        //            _pos.push_back(Vec2f(i + 0.75, j + 0.25));
-        //            _pos.push_back(Vec2f(i + 0.25, j + 0.75));
-        //            _pos.push_back(Vec2f(i + 0.75, j + 0.75));
-        //            _pos.push_back(Vec2f(i + 0.5, j + 0.5));
 
-        //            _pred_pos.push_back(Vec2f(i + 0.25, j + 0.25));
-        //            _pred_pos.push_back(Vec2f(i + 0.75, j + 0.25));
-        //            _pred_pos.push_back(Vec2f(i + 0.25, j + 0.75));
-        //            _pred_pos.push_back(Vec2f(i + 0.75, j + 0.75));
-        //            _pred_pos.push_back(Vec2f(i + 0.5, j + 0.5));
-        //            _type.push_back(0);   // solid
-        //            _type.push_back(0);
-        //            _type.push_back(0);
-        //            _type.push_back(0);
-        //            _type.push_back(0);
-        //        }
-        //    }
-        //}
+        for (int j = 0; j < res_y; ++j) {
+            for (int i = 0; i < res_x; ++i) {
+                if (j == 0 && i != 0) {
+                    _pos.push_back(Vec2f(i, j + 0.8));
+                    _pred_pos.push_back(Vec2f(i, j + 0.8));
+                    _type.push_back(0);   // solid
+                    _pos.push_back(Vec2f(i + 0.5, j + 0.8));
+                    _pred_pos.push_back(Vec2f(i + 0.5, j + 0.8));
+                    _type.push_back(0);   // solid
+                }
+                if (i == 0 && j != 0) {
+                    _pos.push_back(Vec2f(i + 0.8, j));
+                    _pred_pos.push_back(Vec2f(i + 0.8, j));
+                    _type.push_back(0);   // solid
+                    _pos.push_back(Vec2f(i + 0.8, j + 0.5));
+                    _pred_pos.push_back(Vec2f(i + 0.8, j + 0.5));
+                    _type.push_back(0);   // solid
+                }
+            }
+        }
+
+        //solid bars
+       /*
+       int br=0;
+       int j = 7;
+       for (int i = 8; i <= 22; ++i) {
+           if (i == 22) { j ++; i = 21; br = 1; }
+           _pos.push_back(Vec2f(i + 0.25, j + 0.25));
+           _pos.push_back(Vec2f(i + 0.75, j + 0.25));
+           _pos.push_back(Vec2f(i + 0.25, j + 0.75));
+           _pos.push_back(Vec2f(i + 0.75, j + 0.75));
+           _pos.push_back(Vec2f(i + 0.5, j + 0.5));
+           _pred_pos.push_back(Vec2f(i + 0.25, j + 0.25));
+           _pred_pos.push_back(Vec2f(i + 0.75, j + 0.25));
+           _pred_pos.push_back(Vec2f(i + 0.25, j + 0.75));
+           _pred_pos.push_back(Vec2f(i + 0.75, j + 0.75));
+           _pred_pos.push_back(Vec2f(i + 0.5, j + 0.5));
+           _type.push_back(0);   // solid
+           _type.push_back(0);
+           _type.push_back(0);
+           _type.push_back(0);
+           _type.push_back(0);
+           if (br) break;
+       }
+       */
 
         _type_data = _type.data();
         
@@ -244,8 +265,8 @@ public:
 
 
 #ifdef debugGpu 
-        tIndex test = 0;
-        int yo = test;
+     
+    
         int  index_size = _pidxInGrid.size();
         std::vector<int> indexes;
         std::vector<int> flattenN;
@@ -292,7 +313,7 @@ public:
         output[0] = (float*)malloc(sizeof(float) * 2 * _pos.size());
         output[1] = (float*)malloc(sizeof(float) * 2 * _pos.size());
 
-        gpu_handle(env, NB_IT, flatten_pos, flatten_pred_pos, flatten_vel, _type_data, _pos.size(), cl_flatten, cl_pGrid_Size, cl_index_size, cl_indexes, output[0], output[1], resX(), resY(), _h, _m0, _d0, _dt, debug);
+        gpu_handle(env, NB_IT, flatten_pos, flatten_pred_pos, flatten_vel, _type_data, _pos.size(), cl_flatten, cl_pGrid_Size, cl_index_size, cl_indexes, output[0], output[1], resX(), resY(), _h, _m0, _d0, _dt, MIN_X, MIN_Y, WALL_X, MAX_Y,  debug);
 
         free(flatten_pred_pos);
         flatten_pred_pos = output[0];
@@ -325,7 +346,7 @@ public:
             computeDp();
             //update the position p_i* = p_i* + dp_i
             updatePrediction();
-            //applyPhysicalConstraints();
+            applyPhysicalConstraints();
 
             i++;
        }
@@ -483,11 +504,13 @@ private:
         {
             if (_type[i] == 1)
             {
+                //float randF = (rand()+1) / 10000;
+                float rebound = 0.9;
                 Vec2f pos = _pred_pos[i];
-                if (pos.x < 1) { _pred_pos[i].x = 1;  _vel[i].x = -_vel[i].x; }
-                if (pos.x > resX() - 1) { _pred_pos[i].x = resX() - 1; _vel[i].x = -_vel[i].x; }
-                if (pos.y < 1) { _pred_pos[i].y = 1; /*_vel[i].y = 0*/ _vel[i].y = -_vel[i].y; }
-                if (pos.y > resY() - 1) { _pred_pos[i].y = resY() - 1; /*_vel[i].y = 0*/_vel[i].y = -_vel[i].y; }
+                if (pos.x < MIN_X) { _pred_pos[i].x = MIN_X + abs(MIN_X - _pred_pos[i].x); }
+                if (pos.x > WALL_X) { _pred_pos[i].x = WALL_X - abs(WALL_X - _pred_pos[i].x); }
+                if (pos.y < MIN_Y) { _pred_pos[i].y = MIN_Y + abs(MIN_Y - _pred_pos[i].y); }
+                if (pos.y > MAX_Y) { _pred_pos[i].y = MAX_Y - abs(MAX_Y - _pred_pos[i].y); }
             }
         }
     }
@@ -965,6 +988,8 @@ private:
 };
 
 SphSolver gSolver(80, 1.2, 1, Vec2f(0, -9.8), 0.01, 7.0);
+// nu, _h=sr, d0, _g,  eta , gammma
+// nu eta and gamma are sph parameters and have no influence here
 
 void printHelp()
 {
@@ -1081,7 +1106,8 @@ void initOpenGL()
 
 void init()
 {
-   gSolver.initScene(50, 70, 20, 20);
+    gSolver.initScene(MAX_X + 1, MAX_Y + 1, MAX_X / 2 , MAX_Y / 2);
+
 
 
     initGLFW();                   // Windowing system
@@ -1101,8 +1127,9 @@ void render()
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     // grid guides
+    glBegin(GL_LINES);
     if (gShowGrid) {
-        glBegin(GL_LINES);
+
         for (int i = 1; i < gSolver.resX(); ++i) {
             glColor3f(0.3, 0.3, 0.3);
             glVertex2f(static_cast<Real>(i), 0.0);
@@ -1115,8 +1142,13 @@ void render()
             glColor3f(0.3, 0.3, 0.3);
             glVertex2f(static_cast<Real>(gSolver.resX()), static_cast<Real>(j));
         }
-        glEnd();
     }
+    glColor3f(0.3, 0.3, 0.3);
+    glLineWidth(20);
+
+    glVertex2f(WALL_X + 0.3, MAX_Y + 1);
+    glVertex2f(WALL_X + 0.3, 0);
+    glEnd();
 
     // render particles
     glEnable(GL_POINT_SMOOTH);
@@ -1185,7 +1217,8 @@ void update(const float currentTime)
         clock_gettime(CLOCK_REALTIME, &timer);
         double end = timer.tv_nsec * pow(10, -9) + timer.tv_sec;
         std::cout << "Delay of one update" << end - start << std::endl;
-        //_dt = end - start;
+       // _dt = end - start;
+        WALL_X = MAX_X - 10 + 10 * sin(end / 4);
         
     }
 }
@@ -1237,6 +1270,9 @@ int main(int argc, char** argv)
     if (success != CL_SUCCESS) checkError(success, "probleme when loading kernel");
 
     env.updatePrediction = clCreateKernel(env.program, "updatePrediction", &success);
+    if (success != CL_SUCCESS) checkError(success, "probleme when loading kernel");
+
+    env.applyPhysicallConstraint = clCreateKernel(env.program, "applyPhysicalConstraints", &success);
     if (success != CL_SUCCESS) checkError(success, "probleme when loading kernel");
 
     env.updateVelocity = clCreateKernel(env.program, "updateVelocity", &success);

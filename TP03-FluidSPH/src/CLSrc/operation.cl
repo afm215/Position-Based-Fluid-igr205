@@ -334,7 +334,7 @@ __kernel void computeDp(__global const int* neighbours, __global const int* inde
                             const float2 xij = xi - xj;
                             
                         
-                            float scorr = 0; //-0.001f * pow(w(plength(xij.x, xij.y), _h) / w(dq, _h), 4);
+                            float scorr = -0.001f * pow(w(plength(xij.x, xij.y), _h) / w(dq, _h), 4);
                             float2 debug_vec  = (_lambda[i]+ _lambda[j] + scorr)*grad_w(xij, _h);
                             float len_xij = length(xij);
                              
@@ -370,6 +370,22 @@ __kernel void updatePrediction(__global const float2* _dp,__global const int* _t
 
 }
 
+__kernel void applyPhysicalConstraints(__global float* positions, __global const int* _type, const float MIN_X, const float MIN_Y, const float WALL_X, const float MAX_Y )
+    {
+        int  i = get_global_id(0);       
+            if (_type[i] == 1)
+            {
+                //float randF = (rand()+1) / 10000;
+                float rebound = 0.9;
+                float2 pos = (float2) (positions[2*i], positions[2*i+1] );
+                if (pos.x < MIN_X) { positions[ 2 *i] = MIN_X + pabs(MIN_X - pos.x); }
+                if (pos.x > WALL_X) { positions[2 * i] = WALL_X - pabs(WALL_X - pos.x); }
+                if (pos.y < MIN_Y) { positions[2 * i + 1] = MIN_Y + pabs(MIN_Y - pos.y); }
+                if (pos.y > MAX_Y) { positions[2 * i + 1] = MAX_Y - pabs(MAX_Y - pos.y); }
+            }
+        
+    }
+
 
 __kernel void updateVelocity(__global const float* positions,__global const float* old_positions, __global const int* _type, __global float* update_vel, float const dt) {
     int  i = get_global_id(0);
@@ -388,10 +404,11 @@ __kernel void updateVelocity(__global const float* positions,__global const floa
     
 }
 
-__kernel void compute_w_i(__global const int* neighbours, __global const int* indexes_neighbours , __global const float* positions, __global const float* _vel, __global float* w_i_field,  const float sr, const int resX, const int resY){
+__kernel void compute_w_i(__global const int* neighbours, __global const int* indexes_neighbours , __global const float* positions, __global const int * _type, __global const float* _vel, __global float* w_i_field,  const float sr, const int resX, const int resY){
     //Explanation, since we are in 2D wi has only a componant with regard to the 'z axis'
     
     int  i = get_global_id(0);
+    if (_type[i] != 1) return;
     float2 xi = (float2) (positions[2 * i], positions[2 * i + 1]);
     float2 vi = (float2) (_vel[2 * i], _vel[2 * i + 1]);
 
@@ -425,6 +442,7 @@ __kernel void compute_w_i(__global const int* neighbours, __global const int* in
                     }
 
                     if (j == i) continue;
+                    if (_type[j] != 1) continue;
                     
                     const float2 xj = (float2) (positions[2 * j], positions[2 * j + 1] );                    
                     const float2 xij = xi - xj;
@@ -442,7 +460,7 @@ __kernel void compute_w_i(__global const int* neighbours, __global const int* in
     
 }
 
-float2 ComputeEta(__global const int* neighbours, __global const int* indexes_neighbours ,const int i,__global const float* positions, __global const float* w_i_field,  const float sr, const int resX, const int resY){
+float2 ComputeEta(__global const int* neighbours, __global const int* _type, __global const int* indexes_neighbours ,const int i,__global const float* positions, __global const float* w_i_field,  const float sr, const int resX, const int resY){
     float2 result = (float2) (0.f,0.f);
 
     const float2 xi = (float2) (positions[2 * i], positions[2 * i + 1]);
@@ -477,7 +495,8 @@ float2 ComputeEta(__global const int* neighbours, __global const int* indexes_ne
                     }
 
                     if (j == i) continue;
-                    
+                    if (_type[j] != 1) continue;
+
                     const float2 xj = (float2) (positions[2 * j], positions[2 * j + 1] ); 
                     const float wj = w_i_field[j];
                     const float abs_wj = pabs(wj)  ;                 
@@ -492,22 +511,22 @@ float2 ComputeEta(__global const int* neighbours, __global const int* indexes_ne
     
     return result;
 }
-__kernel void computeVorticity(__global const int* neighbours, __global const int* indexes_neighbours ,__global const float* positions, __global float* _vel, __global const float * w_i_field,float const _dt, const float _m0, const float sr, const int resX, const int resY) {
+__kernel void computeVorticity(__global const int* neighbours, __global const int* indexes_neighbours ,__global const float* positions, __global const int* _type, __global float* _vel, __global const float * w_i_field,float const _dt, const float _m0, const float sr, const int resX, const int resY) {
 
     int  i = get_global_id(0);
-
-    float w_i = w_i_field[i]; //compute_w_i(i,neighbours, indexes_neighbours, positions, _vel, w_i_field, sr, resX, resY);
+    if (_type[i] != 1) return;
 
     
 
-    float2 N = ComputeEta(neighbours, indexes_neighbours,  i,positions,w_i_field,  sr, resX, resY);
+    float w_i = w_i_field[i];
+
+    
+
+    float2 N = ComputeEta(neighbours, _type, indexes_neighbours,  i,positions,w_i_field,  sr, resX, resY);
 
     N = normalize(N);
     float2 twoD_cross = (float2) (N.y * w_i, - N.x * w_i);
     float2 vi = _dt /  _m0 * 1.f * twoD_cross; //1.f = epsilon vorticity
-    if(vi.x != 0){
-     //   printf("v_i %f, %f \n", vi.x, vi.y);
-    }
 
 
 
@@ -566,9 +585,9 @@ __kernel void applyViscousForce(__global const int* neighbours, __global const i
                     j = neighbours[indexes_neighbours[gidx - 1] + ni];
                 }
 
-
-
                 if (i == j) continue;
+                if (_type[j] != 1) continue;
+
                 const float2 xj = (float2) (positions[2 * j], positions[2 * j + 1] );
                 const float2 xij = xi - xj;
                 const float2 vj = (float2) (update_vel[2*j], update_vel[2*j +1]);

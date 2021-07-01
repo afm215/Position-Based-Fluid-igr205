@@ -16,6 +16,7 @@ public:
 	cl_kernel compute_w_i;
 	cl_kernel coputeVorticity; 
 	cl_kernel applyViscousForce;
+	cl_kernel applyPhysicallConstraint;
 
 	cl_program program;
 	cl_context context;
