@@ -73,7 +73,7 @@ bool gAppTimerStoppedP = true;
 // global options
 bool gPause = true;
 bool gSaveFile = false;
-bool gShowGrid = true;
+bool gShowGrid = false;
 bool gShowVel = false;
 int gSavedCnt = 0;
 
@@ -140,7 +140,7 @@ public:
         _kernel(h), _nu(nu), _h(h), _d0(density),
         _g(g), _eta(eta), _gamma(gamma)
     {
-        _dt = 0.02;
+        _dt = 0.016;
         _m0 = 1;
         _c = std::fabs(_g.y) / _eta;
         _p0 = _d0 * _c * _c / _gamma;     // k of EOS

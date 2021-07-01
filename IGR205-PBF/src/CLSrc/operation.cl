@@ -60,7 +60,7 @@ float w_viscosity(const float s, const float h){
         return 0.0f;
 
     
-    float result = 45 / M_PI /h/h/h/h/h/h * (h - s);    //15 /( 2 * M_PI * h *h *h) * ( -s*s*s / 2 / h/ h / h + s*s/h/h + h / 2 / s -1);
+    float result = 45 / M_PI /h/h/h/h/h/h * (h - s);   
     return result;
 }
 
