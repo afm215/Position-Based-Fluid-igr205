@@ -1,4 +1,4 @@
-﻿// ----------------------------------------------------------------------------
+// ----------------------------------------------------------------------------
 // main.cpp
 //
 //  Created on: Fri Jan 22 20:45:07 2021
@@ -34,8 +34,6 @@ bool debug = false;
 
 #include <GLFW/glfw3.h>
 
-
-#include "kernel.hpp"
 
 #include "kernel.hpp"
 
@@ -164,7 +162,6 @@ public:
         _r = static_cast<Real>(res_x) - 0.5 * _h;
         _b = 0.5 * _h;
         _t = static_cast<Real>(res_y) - 0.5 * _h;
-
 
         // sample a fluid mass
         for (int j = 0; j < f_height; ++j) {
@@ -385,9 +382,10 @@ public:
         updateColor();
         if (gShowVel) updateVelLine();
 
+
         /*
         * // PSEUDO CODE :
-        *
+        * 
         for all particles i do
             apply forces vi <= vi + Dtfext(xi)
             predict position x*i <= xi + Dtvi
@@ -630,8 +628,8 @@ private:
 
             return result;
         }
-
-        else {
+    
+        else{
             const Vec2f& xk = position(k);
             const Vec2f xik = xi - xk;
             result -= 1 / _d0 * _kernel.grad_w(xik);
@@ -690,7 +688,6 @@ private:
 
             _lambda[i] /= (sumnormgradCi + SPH_EPSILON);
 
-            Vec2f p_i = position(i);
 
          
         }
@@ -704,10 +701,11 @@ private:
         const Real sr = _h;
         Real dq = 0.3 ;
 
-            const int gi_from = static_cast<int>(p_i.x - sr);
-            const int gi_to = static_cast<int>(p_i.x + sr) + 1;
-            const int gj_from = static_cast<int>(p_i.y - sr);
-            const int gj_to = static_cast<int>(p_i.y + sr) + 1;
+#pragma omp parallel for
+        for (tIndex i = 0; i < particleCount(); ++i) {
+            if (_type[i] != 1) continue;
+            Vec2f sum_grad_p(0, 0);
+            const Vec2f& xi = position(i);
 
             
 
@@ -721,6 +719,7 @@ private:
                 for (int gi = std::max(0, gi_from); gi < std::min(resX(), gi_to); ++gi) {
                     const tIndex gidx = idx1d(gi, gj);
 
+                    // each particle in nearby cells
                     for (size_t ni = 0; ni < _pidxInGrid[gidx].size(); ++ni) {
                         const tIndex j = _pidxInGrid[gidx][ni];
                         if (i == j) continue;
@@ -921,9 +920,9 @@ private:
 #pragma omp parallel for
         for (tIndex i = 0; i < particleCount(); ++i) {
             if (_type[i] != 1) {
-                _col[i * 4 + 0] = 0.2;
-                _col[i * 4 + 1] = 0.2;
-                _col[i * 4 + 2] = 0.2;
+                _col[i * 4 + 0] = 0.8;
+                _col[i * 4 + 1] = 0.8;
+                _col[i * 4 + 2] = 0.8;
             }
             else {
                 _col[i * 4 + 0] = 0.6;
@@ -933,16 +932,16 @@ private:
         }
     }
 
-    /* void updateVelLine()
-     {
- #pragma omp parallel for
-         for (tIndex i = 0; i < particleCount(); ++i) {
-             _vln[i * 4 + 0] = _pos[i].x;
-             _vln[i * 4 + 1] = _pos[i].y;
-             _vln[i * 4 + 2] = _pos[i].x + _vel[i].x;
-             _vln[i * 4 + 3] = _pos[i].y + _vel[i].y;
-         }
-     }*/
+    void updateVelLine()
+    {
+#pragma omp parallel for
+        for (tIndex i = 0; i < particleCount(); ++i) {
+            _vln[i * 4 + 0] = _pos[i].x;
+            _vln[i * 4 + 1] = _pos[i].y;
+            _vln[i * 4 + 2] = _pos[i].x + _vel[i].x;
+            _vln[i * 4 + 3] = _pos[i].y + _vel[i].y;
+        }
+    }
 
     inline tIndex idx1d(const int i, const int j) { return i + j * resX(); }
 
