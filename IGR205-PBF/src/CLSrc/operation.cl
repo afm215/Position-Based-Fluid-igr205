@@ -12,6 +12,7 @@ float pabs(const float number){
 }
 
 float2 Repulsion(const float2 xij){
+    //not used
     float band = 0.00002f;
     float repulsion_force  = 0.0002;
     float len_xij = length(xij);
@@ -77,47 +78,13 @@ float2 grad_w(const float2 r, const float h) {
 
 float crossProduct(const float2 a, const float2 b){
     float result = a.x * b.y - a.y * b.x;
-    if(a.x != 0 ){
-        //printf("%f %f ; %f %f ; %f \n", a.x, a.y, b.x, b.y, result);
-    }
+
     return result;
 }
 
 
 
 
-
-__kernel void proto(__global const int* neighbours, __global const int* indexes_neighbours, __global const float* positions, __global float* update_pos, __global float* update_vel) {
-
-
-
-
-    //int i = 0;
-
-    //while (i < NB_IT)
-    //{
-
-    //    //compute lambda_i 
-    //    //computeLambda use the comutegradCi function wich use the density of the paricles 
-    //    computeDensity();
-    //    computeLambda();
-    //    //calculate the difference in positions using the lamba_i
-    //    computeDp();
-    //    //update the position p_i* = p_i* + dp_i
-    //    updatePrediction();
-    //    //applyPhysicalConstraints();
-
-    //    i++;
-    //}
-    ////update the velocities v_i = p_i* - p_i 
-    //updateVelocity();
-    //computeVorticity();
-    //applyViscousForce();
-    //// use the newly computed velocities to compute vorticity confinement and XSPH viscosity TO DO !!!
-
-    ////modify the position p_i = p_i *
-    //updatePosition();
-}
 
 // remind that everything is float so size(positions)  = 2 * number_points = size(velocities)
 // neighbours is flattened, use indexes to know where are the delimitations of the neighbour arrays
@@ -361,7 +328,7 @@ __kernel void computeDp(__global const int* neighbours, __global const int* inde
 
 
 __kernel void updatePrediction(__global const float2* _dp,__global const int* _type, __global float* positions) {
-    //WARNING positions have to be CL_MEM_READ_WRITE or duplicate entries?
+    //WARNING positions have to be CL_MEM_READ_WRITE 
     int  i = get_global_id(0);
     if (_type[i] != 1) return;
     positions[ 2 * i] += _dp[i].x;
@@ -375,7 +342,6 @@ __kernel void applyPhysicalConstraints(__global float* positions, __global const
         int  i = get_global_id(0);       
             if (_type[i] == 1)
             {
-                //float randF = (rand()+1) / 10000;
                 float rebound = 0.9;
                 float2 pos = (float2) (positions[2*i], positions[2*i+1] );
                 if (pos.x < MIN_X) { positions[ 2 *i] = MIN_X + pabs(MIN_X - pos.x); }
@@ -604,7 +570,6 @@ __kernel void applyViscousForce(__global const int* neighbours, __global const i
         }
     }
     float2 result = c * sum_acc;
-    //printf("result : %f , %f\n", result.x, result.y);
 
 
 

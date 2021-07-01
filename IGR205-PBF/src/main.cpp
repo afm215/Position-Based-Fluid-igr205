@@ -173,8 +173,6 @@ public:
                 _pos.push_back(Vec2f(I + 0.25, J + 0.25));
                 //_pos.push_back(Vec2f(I + 0.75, J + 0.75));
                 _pred_pos.push_back(Vec2f(I + 0.25, J + 0.25));
-                //_pred_pos.push_back(Vec2f(I + 0.75, J + 0.75));
-               // _type.push_back(1);     // fluid
                 _type.push_back(1);
             }
         }
@@ -291,24 +289,9 @@ public:
 
 
 
-        /*for (int i = 0; i < index_size; i++) {
-            for (int j = 0; j < _pidxInGrid[i].size(); j++) {
-                if (i == 0)
-                {
-                    std::cout << flattenN[j] << std::endl;
-                }
-                else {
-                    std::cout << flattenN[indexes[i - 1] + j] << std::endl;
-                    std::cout << cl_flatten[indexes[i - 1] + j] << std::endl;
-                    assert(flattenN[indexes[i - 1] + j] == _pidxInGrid[i][j]);
-                }
 
 
-            }
-        }*/
-
-
-        //opencl doesn't override apprently the values so you must define an output vector
+        //opencl doesn't override apparently the values so you must define an output vector
         float* output[2];
         output[0] = (float*)malloc(sizeof(float) * 2 * _pos.size());
         output[1] = (float*)malloc(sizeof(float) * 2 * _pos.size());
@@ -478,7 +461,6 @@ private:
 
             if (_type[i] == 1) {
                 _vel[i] += _dt * _g;
-                //assert(!isnan(_vel[i].x) && !isnan(_vel[i].y));
             }
             else {
                 _vel[i] = Vec2f(0);
@@ -506,7 +488,6 @@ private:
         {
             if (_type[i] == 1)
             {
-                //float randF = (rand()+1) / 10000;
                 float rebound = 0.9;
                 Vec2f pos = _pred_pos[i];
                 if (pos.x < MIN_X) { _pred_pos[i].x = MIN_X + abs(MIN_X - _pred_pos[i].x); }
@@ -581,13 +562,6 @@ private:
 
 
 
-//    void computePressure()
-//    {
-//#pragma omp parallel for
-//        for (tIndex i = 0; i < particleCount(); ++i) {
-//            _p[i] = std::max(equationOfState(_d[i], _d0, _p0, _gamma), Real(0.0));
-//        }
-//    }
 
     Vec2f computeGradCi(int i, int k) {
 
@@ -669,12 +643,7 @@ private:
                     for (size_t ni = 0; ni < _pidxInGrid[gidx].size(); ++ni) {
 
                         tIndex j = _pidxInGrid[gidx][ni];
-                        /*auto j = _pidxInGrid[gidx][ni];
-                        Vec2f xj = position(j);
-                        Vec2f xij = p_i - xj;
-                        Vec2f gradCi = _kernel.grad_w(xij) / _d0;
-                        
-                        grad_sum += gradCi;*/
+
                         if (i == j) continue;
                         Vec2f gradCi = computeGradCi(i, _pidxInGrid[gidx][ni]);
 
@@ -684,7 +653,6 @@ private:
                 }
             }
             
-            //sumnormgradCi += grad_sum.dotProduct(grad_sum);
 
             _lambda[i] /= (sumnormgradCi + SPH_EPSILON);
 
@@ -723,17 +691,16 @@ private:
                     for (size_t ni = 0; ni < _pidxInGrid[gidx].size(); ++ni) {
                         const tIndex j = _pidxInGrid[gidx][ni];
                         if (i == j) continue;
-                        //if (_type[j] != 1) continue;
                         const Vec2f& xj = position(j);
                         const Vec2f xij = xi - xj;
                        
-                        Real scorr = 0;//-0.001f * pow(_kernel.w(xij) / _kernel.w(dq), 4);
+                        Real scorr = -0.001f * pow(_kernel.w(xij) / _kernel.w(dq), 4);
                         sum_grad_p += (_lambda[i]+ _lambda[j] + scorr)*_kernel.grad_w(xij);
                     }
                 }
             }
 
-            _dp[i] =  sum_grad_p / _d0;   // TODO pas sur du tout changmeent pour debug 
+            _dp[i] =  sum_grad_p / _d0;   
         }
     }
 
@@ -751,9 +718,9 @@ private:
 #pragma omp parallel for
         for (tIndex i = 0; i < particleCount(); ++i) {
             if (_type[i] == 1) {
-                //Vec2f spread = _pred_pos[i] - _pos[i];
+                
                 _vel[i] = (_pred_pos[i] - _pos[i]) / _dt;
-                //assert(!isnan(_vel[i].x) && !isnan(_vel[i].y));
+                
 
             }
             else {
@@ -890,8 +857,6 @@ private:
 
             
             _vel[i] += c * sum_acc;
-
-            //assert(!isnan(_vel[i].x) && !isnan(_vel[i].y));
 
         }
     }
