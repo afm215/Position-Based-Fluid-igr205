@@ -35,7 +35,7 @@ float2 Repulsion(const float2 xij){
 }
 
 float kPoly6Factor() {
-    return (315.0f / 64.0f /3.141592f);
+    return (315.0f / 64.0f / M_PI);
 }
 
 float kSpikyGradFactor() { return (-45.0f / M_PI); }
@@ -52,6 +52,15 @@ float w(const float s, const float h) {
 
     float x = (h * h - s * s) / (h * h * h);
     float result = kPoly6Factor() * x * x * x;
+    return result;
+}
+
+float w_viscosity(const float s, const float h){
+    if (s < 0.0f || s >= h)
+        return 0.0f;
+
+    
+    float result = 45 / M_PI /h/h/h/h/h/h * (h - s);    //15 /( 2 * M_PI * h *h *h) * ( -s*s*s / 2 / h/ h / h + s*s/h/h + h / 2 / s -1);
     return result;
 }
 
@@ -495,7 +504,7 @@ __kernel void computeVorticity(__global const int* neighbours, __global const in
 
     N = normalize(N);
     float2 twoD_cross = (float2) (N.y * w_i, - N.x * w_i);
-    float2 vi = _dt /  _m0 * 1.f * twoD_cross;
+    float2 vi = _dt /  _m0 * 1.f * twoD_cross; //1.f = epsilon vorticity
     if(vi.x != 0){
      //   printf("v_i %f, %f \n", vi.x, vi.y);
     }
@@ -513,7 +522,6 @@ __kernel void applyViscousForce(__global const int* neighbours, __global const i
     
     int  i = get_global_id(0);
     
-    bool test = _type[i] != 1;
     float c =0.001f;
     if (_type[i] != 1) return;
     float2 sum_acc = (float2) (0, 0);
@@ -570,13 +578,14 @@ __kernel void applyViscousForce(__global const int* neighbours, __global const i
                 if (len_xij > sr) continue;
 
                 sum_acc += 
-                    vij* w(len_xij, sr);
+                   vij* w(len_xij, sr);
+
                 
             }
         }
     }
     float2 result = c * sum_acc;
-    printf("result : %f", result);
+    //printf("result : %f , %f\n", result.x, result.y);
 
 
 

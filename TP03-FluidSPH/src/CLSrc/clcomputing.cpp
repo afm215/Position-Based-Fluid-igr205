@@ -450,7 +450,6 @@ int gpu_handle(GpuEnvironnment env, int numberiteration, const float* _pos, cons
 
   
 
-    /*std::cout << "shuuuuuuuuut" << std::endl;*/
 
     status = clEnqueueReadBuffer(env.queue, output_vel, CL_TRUE,
         0, 2 * sizeof(float) * number_of_point, vel_output, 1, &finish_event, &finish_event);
