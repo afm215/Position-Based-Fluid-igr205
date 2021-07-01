@@ -7,3 +7,12 @@
 !/TP03-FluidSPH/dep
 /TP03-FluidSPH/dep/*
 !/TP03-FluidSPH/dep/opencl
+
+!/IGR205-PBF/
+/IGR205-PBF/*
+!/IGR205-PBF/CMakeLists.txt
+!/IGR205-PBF/src
+
+!/IGR205-PBF/dep
+/IGR205-PBF/dep/*
+!/IGR205-PBF/dep/opencl
