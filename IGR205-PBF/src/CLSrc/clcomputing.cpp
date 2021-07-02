@@ -506,7 +506,7 @@ int gpu_handle(GpuEnvironnment& env, int numberiteration, const float* _pos, con
     clReleaseEvent(write_event[4]);
 
     clReleaseEvent(kernel_event);
-    clReleaseEvent(finish_event);
+
 
 
     status = clReleaseMemObject(pos_buf);
