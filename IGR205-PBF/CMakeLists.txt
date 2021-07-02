@@ -24,7 +24,7 @@ SET(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_VERBOSE_MAKEFILE ON)
 
 project(tpSph)
-
+include (CTest)
 add_executable(
   ${PROJECT_NAME}
   src/main.cpp "src/kernel.hpp" "src/CLSrc/gpuenv.cpp" "src/CLSrc/clcomputing.cpp")

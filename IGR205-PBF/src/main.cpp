@@ -298,8 +298,12 @@ public:
 
         gpu_handle(env, NB_IT, flatten_pos, flatten_pred_pos, flatten_vel, _type_data, _pos.size(), cl_flatten, cl_pGrid_Size, cl_index_size, cl_indexes, output[0], output[1], resX(), resY(), _h, _m0, _d0, _dt, MIN_X, MIN_Y, WALL_X, MAX_Y,  debug);
 
+
+
         free(flatten_pred_pos);
         flatten_pred_pos = output[0];
+       
+
 
         free(flatten_vel);
         flatten_vel = output[1];
@@ -394,6 +398,9 @@ public:
             update position xi <= x*i
         end for
         */
+
+        
+
 
 
     }
@@ -1285,6 +1292,12 @@ int main(int argc, char** argv)
     checkError(status, "Failed to release kernel");
 
     status = clReleaseKernel(env.applyViscousForce);
+    checkError(status, "Failed to release kernel");
+
+    status = clReleaseKernel(env.applyPhysicallConstraint);
+    checkError(status, "Failed to release kernel");
+
+    status = clReleaseKernel(env.compute_w_i);
     checkError(status, "Failed to release kernel");
 
 
